@@ -1,0 +1,36 @@
+{
+  "contractId": "tinysa-flasher-application",
+  "contractVersion": 1,
+  "applicationContractVersion": 1,
+  "deviceContractVersion": 1,
+  "owner": "firmware-update-control-plane",
+  "release": {
+    "product": "tinySA Ultra / Ultra+",
+    "version": "tinySA4_v1.4-224-gc979386",
+    "revision": "c979386",
+    "sourceCommit": "c97938697b6c7485e7cab50bca9af76996b7d671",
+    "publishedAt": "2026-05-06T11:33:12.000Z",
+    "downloadUrl": "http://dfu.tinydevices.org/tinySA4/DFU/tinySA4_v1.4-224-gc979386.bin",
+    "sha256": "3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41",
+    "sizeBytes": 185704,
+    "transportIntegrity": "pinned-sha256"
+  },
+  "safetyInvariants": {
+    "physicalCdcAdmission": "exact-0483-5740-and-zs407-firmware-identity",
+    "rfOutputDuringAdmission": "commanded-off-before-and-after-identity",
+    "artifactAdmission": "exact-byte-length-and-pinned-sha256",
+    "dfuUtility": "exact-version-0.11",
+    "dfuAdmission": "one-0483-df11-alt0-internal-flash-with-nonempty-identity",
+    "dfuToctou": "same-persisted-fingerprint-reenumerated-immediately-before-write",
+    "writeBoundary": "native-human-confirmation-and-durable-prewrite-journal",
+    "repeatWritePolicy": "started-or-indeterminate-active-session-is-global-fail-closed",
+    "processConcurrency": "electron-single-instance-and-exclusive-filesystem-write-lock",
+    "postWriteVerification": "exact-cdc-identity-device-id-and-target-source-revision",
+    "legacySafetyEvidence": "conflict-detecting-one-time-import-from-atomizer-user-data",
+    "automation": "no-automatic-flash"
+  },
+  "externalTrustBoundaries": {
+    "dfuUtil": "Externally installed executable discovered by explicit TINYSA_DFU_UTIL or bounded PATH search; version output must identify 0.11, but the binary is not bundled or cryptographically pinned by this application.",
+    "oemHttpHost": "Artifact transport is untrusted; admission is exact byte length plus pinned SHA-256."
+  }
+}

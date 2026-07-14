@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "outDir": "dist/main"
+  },
+  "include": ["src/core/**/*.ts", "src/device/**/*.ts", "src/main/**/*.ts"]
+}

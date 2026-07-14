@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vite/client"],
+    "outDir": "dist/renderer"
+  },
+  "include": ["src/core/contracts.ts", "src/main/ipc-contract.ts", "src/renderer/**/*.ts", "src/renderer/**/*.tsx"]
+}
