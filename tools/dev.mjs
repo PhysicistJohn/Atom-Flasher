@@ -15,6 +15,7 @@ if (!npmCli) throw new Error('npm run dev must be launched through npm so the pi
 const require = createRequire(import.meta.url);
 const electronBinary = require('electron');
 const rendererUrl = 'http://127.0.0.1:5173/';
+const developmentHostLifetimeDescriptor = 3;
 const developerData = await preparePrivateDevelopmentDirectory(root);
 const watchedInputs = [
   ...['src/application', 'src/core', 'src/device', 'src/dfu', 'src/main']
@@ -25,6 +26,7 @@ const watchedInputs = [
 let stopping = false;
 let viteProcess;
 let electronProcess;
+let electronLifetimeChannel;
 let buildProcess;
 let rebuilding = false;
 let rebuildPending = false;
@@ -99,12 +101,22 @@ async function startElectron() {
       ...process.env,
       VITE_DEV_SERVER_URL: rendererUrl,
       TINYSA_FLASHER_DEV_USER_DATA: developerData,
+      TINYSA_FLASHER_DEV_HOST_LIFETIME_FD: String(developmentHostLifetimeDescriptor),
     },
-    stdio: 'inherit',
+    // fd 3 is a payload-free lifetime channel. Electron observes EOF when this
+    // host exits for any reason, including SIGKILL, and permanently revokes
+    // the development renderer before another process can claim the origin.
+    stdio: ['inherit', 'inherit', 'inherit', 'pipe'],
   });
+  const lifetimeChannel = child.stdio[developmentHostLifetimeDescriptor];
+  lifetimeChannel?.unref?.();
+  electronLifetimeChannel = lifetimeChannel;
   electronProcess = child;
   child.once('exit', (code, signal) => {
-    if (electronProcess === child) electronProcess = undefined;
+    if (electronProcess === child) {
+      electronProcess = undefined;
+      electronLifetimeChannel = undefined;
+    }
     if (stopping) return;
     if (restartPending && !rebuilding) {
       restartPending = false;
@@ -169,7 +181,11 @@ async function shutdown(exitCode) {
   // approved shutdown. unref() lets this wrapper stop without weakening that
   // boundary; the developer then quits the still-running app when it is safe.
   if (electronProcess && electronProcess.exitCode === null && electronProcess.signalCode === null) {
-    process.stdout.write('\nDevelopment host stopped without terminating TinySA Flasher. Quit the app normally when its safety state permits.\n');
+    // Revoke renderer authority before stopping Vite and releasing its trusted
+    // loopback port. SIGKILL needs no cleanup: the kernel closes this endpoint.
+    electronLifetimeChannel?.destroy();
+    electronLifetimeChannel = undefined;
+    process.stdout.write('\nDevelopment host stopped without terminating TinySA Flasher. Its inherited lifetime channel will revoke and close the renderer while any in-flight main-process update finishes safely. Quit the quarantined app normally when its safety state permits.\n');
     electronProcess.unref();
   }
   await Promise.allSettled([

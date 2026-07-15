@@ -16,6 +16,10 @@ import { LocalFirmwareBuildStore } from '../core/local-firmware-build.js';
 import { migrateLegacyFirmwareState } from '../core/legacy-migration.js';
 import { Zs407DeviceService } from '../device/device-service.js';
 import { loadApplicationConfig, type ApplicationConfig } from './config.js';
+import {
+  DevelopmentHostLifetime,
+  developmentHostLifetimeDescriptor,
+} from './development-host-lifetime.js';
 import { ElectronSafetyPrompts } from './electron-safety-prompts.js';
 import { registerApplicationIpc } from './ipc-handlers.js';
 import { LocalFirmwareTargetPicker } from './local-firmware-target-picker.js';
@@ -41,6 +45,8 @@ class DesktopHost {
   #quitApproved = false;
   #shutdownInFlight = false;
   #windowReleaseInFlight = false;
+  #developmentHostLifetime: DevelopmentHostLifetime | undefined;
+  #developmentRendererQuarantined = false;
 
   installLifecycle(): void {
     app.on('second-instance', () => {
@@ -56,17 +62,30 @@ class DesktopHost {
       void this.#requestSafeQuit();
     });
     app.on('activate', () => {
-      if (!this.#liveWindow() && this.#config && this.#application) {
+      if (!this.#developmentRendererQuarantined && !this.#liveWindow() && this.#config && this.#application) {
         this.#window = this.#createWindow(this.#config);
         this.#application.resumeAfterWindowOpen();
       }
     });
-    app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+    app.on('window-all-closed', () => {
+      if (!this.#developmentRendererQuarantined && process.platform !== 'darwin') app.quit();
+    });
   }
 
   async start(): Promise<void> {
     const config = loadApplicationConfig(process.env, app.isPackaged);
     this.#config = config;
+    const lifetimeDescriptor = developmentHostLifetimeDescriptor(
+      process.env,
+      app.isPackaged,
+      Boolean(config.developmentServerUrl),
+    );
+    if (lifetimeDescriptor !== undefined) {
+      this.#developmentHostLifetime = new DevelopmentHostLifetime(
+        lifetimeDescriptor,
+        (reason) => this.#quarantineDevelopmentRenderer(reason),
+      );
+    }
     const userData = app.getPath('userData');
     const applicationData = app.getPath('appData');
     if (!isolatedDeveloperData) {
@@ -117,6 +136,7 @@ class DesktopHost {
     const application = new FlasherApplication(device, updater, prompts, targetPicker);
     await application.initialize();
     this.#application = application;
+    this.#assertRendererAuthority();
     this.#removeIpc = registerApplicationIpc<IpcMainInvokeEvent>({
       application,
       registrar: {
@@ -129,6 +149,7 @@ class DesktopHost {
   }
 
   #createWindow(config: ApplicationConfig): BrowserWindow {
+    this.#assertRendererAuthority();
     this.#allowWindowDestruction = false;
     const window = new BrowserWindow({
       width: 980,
@@ -214,7 +235,12 @@ class DesktopHost {
   async #requestSafeQuit(): Promise<void> {
     if (this.#shutdownInFlight) return;
     const application = this.#application;
-    if (!application) { this.#quitApproved = true; app.quit(); return; }
+    if (!application) {
+      this.#quitApproved = true;
+      this.#disposeDevelopmentHostLifetime();
+      app.quit();
+      return;
+    }
     const window = this.#liveWindow();
     if (application.criticalSection !== 'none') {
       window?.show();
@@ -230,6 +256,7 @@ class DesktopHost {
       this.#allowWindowDestruction = true;
       this.#removeIpc?.();
       this.#removeIpc = undefined;
+      this.#disposeDevelopmentHostLifetime();
       app.quit();
     } catch (value) {
       console.error('TinySA Flasher safe shutdown failed', value);
@@ -246,11 +273,43 @@ class DesktopHost {
 
   #isTrustedEvent(event: IpcMainInvokeEvent): boolean {
     const window = this.#liveWindow();
-    return Boolean(window
+    return Boolean(!this.#developmentRendererQuarantined
+      && (this.#developmentHostLifetime?.available ?? true)
+      && window
       && this.#trustedRenderer
       && event.sender === window.webContents
       && event.senderFrame === window.webContents.mainFrame
       && isTrustedRendererUrl(event.senderFrame.url, this.#trustedRenderer));
+  }
+
+  #assertRendererAuthority(): void {
+    if (this.#developmentRendererQuarantined) {
+      throw new Error('The development renderer is permanently quarantined because its host lifetime ended');
+    }
+    this.#developmentHostLifetime?.assertAvailable();
+  }
+
+  #quarantineDevelopmentRenderer(reason: string): void {
+    if (this.#developmentRendererQuarantined) return;
+    this.#developmentRendererQuarantined = true;
+    console.error(`${reason}. TinySA Flasher revoked the development renderer and will not recreate it.`);
+    // Removing handlers and trust is synchronous and does not cancel an IPC
+    // operation that already crossed into the main-process application. A
+    // confirmed firmware write/post-write verification therefore continues to
+    // its durable terminal state even though the replaceable renderer is gone.
+    this.#trustedRenderer = undefined;
+    this.#removeIpc?.();
+    this.#removeIpc = undefined;
+    const window = this.#liveWindow();
+    if (window) {
+      this.#allowWindowDestruction = true;
+      window.destroy();
+    }
+  }
+
+  #disposeDevelopmentHostLifetime(): void {
+    this.#developmentHostLifetime?.dispose();
+    this.#developmentHostLifetime = undefined;
   }
 }
 

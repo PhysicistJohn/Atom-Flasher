@@ -75,7 +75,7 @@ npm ci
 npm run dev
 ```
 
-The development command uses the strict renderer origin `http://127.0.0.1:5173`: renderer changes use HMR, while application, main, preload, core, device, DFU, and the active release-manifest JSON changes rebuild and stage a restart. It never signals or force-kills a running Electron process after a source edit or when the development host stops. Quit the app normally when safe; the host starts a staged build after a normal quit, or leaves the app running with an explicit notice when the host itself stops. Development evidence is isolated under ignored `.dev/user-data/`; unpackaged isolated development does not migrate production Atomizer evidence.
+The development command uses the strict renderer origin `http://127.0.0.1:5173`: renderer changes use HMR, while application, main, preload, core, device, DFU, and the active release-manifest JSON changes rebuild and stage a restart. Electron also receives a payload-free inherited lifetime channel owned by the development host. Kernel EOF permanently removes IPC trust and destroys the renderer if that host ends—even by SIGKILL—so a later process cannot inherit hardware capability by reclaiming port 5173. An operation already admitted to the main process, including a firmware write or post-write verification, continues to its durable terminal state; the host never signals or force-kills it. Quit the quarantined app normally when safe, then relaunch through `npm run dev`. Development evidence is isolated under ignored `.dev/user-data/`; unpackaged isolated development does not migrate production Atomizer evidence.
 
 For routine UI and workflow work, run the browser-only safe mock:
 
