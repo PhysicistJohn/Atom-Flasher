@@ -244,7 +244,7 @@ export function parseIdentity(versionResponse: string, infoResponse: string, por
     firmwareReportedRevision: revision,
     ...(firmwareSourceCommit ? { firmwareSourceCommit } : {}),
     firmwareQualification: firmwareSourceCommit ? 'supported-oem' : 'custom-unqualified',
-    ...(!firmwareSourceCommit ? { firmwareWarning: `Custom firmware revision ${revision} is admitted only for identification. TinySA Flasher has not qualified this build and will not flash from this session.` } : {}),
+    ...(!firmwareSourceCommit ? { firmwareWarning: `Custom firmware revision ${revision} is admitted only as device identity. TinySA Flasher has not qualified or recovered the installed bytes, so this identity cannot prove an exact installed image or serve as a flash artifact. A separately admitted OEM release or manifested local build may still start an update transaction.` } : {}),
     port,
     usbIdentityVerified: true,
   };

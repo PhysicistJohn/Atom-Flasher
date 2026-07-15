@@ -22,7 +22,8 @@ describe('minimal ZS407 admission service', () => {
   it('labels unknown source revisions as custom and unqualified', () => {
     const identity = parseIdentity('tinySA4_custom-g43eb0f1\r\nHW Version: ZS407', 'tinySA ULTRA+ ZS407', port);
     expect(identity.firmwareQualification).toBe('custom-unqualified');
-    expect(identity.firmwareWarning).toMatch(/will not flash/i);
+    expect(identity.firmwareWarning).toMatch(/cannot prove an exact installed image or serve as a flash artifact/i);
+    expect(identity.firmwareWarning).toMatch(/separately admitted OEM release or manifested local build may still start an update transaction/i);
   });
 
   it('does not confer OEM provenance from a recognized commit embedded in a spoofed version', () => {
