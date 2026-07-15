@@ -4,6 +4,14 @@ import type { PortCandidate } from '../src/core/contracts.js';
 import type { TransportEvent } from '../src/device/protocol.js';
 
 const port: PortCandidate = { id: 'one', path: '/dev/tty.usbmodem', vendorId: '0483', productId: '5740', serialNumber: 'CDC407', usbMatch: 'exact-zs407-cdc' };
+const firmwareHelpCatalog = 'commands: mode output deviceid\r\nOther commands: version info help vbat capture';
+const nonEmptyMutationReplies = [
+  ['ok', 'ok'],
+  ['arbitrary prose', 'operation completed'],
+  ['error response', 'error: refused'],
+  ['missing command response', 'no such command'],
+  ['whitespace-only response', ' \t'],
+] as const;
 
 describe('minimal ZS407 admission service', () => {
   it('binds exact USB evidence to a supported source revision', () => {
@@ -33,14 +41,33 @@ describe('minimal ZS407 admission service', () => {
     )).toThrow(/did not report a source revision/i);
   });
 
-  it('rejects a wrong product, malformed telemetry, and empty help', () => {
+  it('rejects a wrong product and malformed telemetry', () => {
     expect(() => parseIdentity('not-a-tinysa\r\nHW Version: ZS407', 'tinySA ULTRA+ ZS407', port)).toThrow(/did not identify/);
     expect(parseBattery('4211 mV')).toBe(4211);
     expect(() => parseBattery('4.2 V')).toThrow(/Malformed battery/);
     expect(parseDeviceId('deviceid 407')).toBe(407);
     expect(() => parseDeviceId('407')).toThrow(/Malformed device ID/);
-    expect(parseHelpCommands('system: version info help\r\ndevice: output capture')).toContain('capture');
-    expect(() => parseHelpCommands('no catalog')).toThrow(/no command catalog/);
+  });
+
+  it('accepts only the Firmware source-backed two-line help grammar', () => {
+    expect(parseHelpCommands(firmwareHelpCatalog)).toEqual([
+      'capture', 'deviceid', 'help', 'info', 'mode', 'output', 'vbat', 'version',
+    ]);
+  });
+
+  it.each([
+    ['loose colon catalogs', 'system: version info help\r\ndevice: output capture', /commands line/i],
+    ['an extra line', `${firmwareHelpCatalog}\r\nnote: ignored`, /expected exactly/i],
+    ['a duplicate command', 'commands: mode output\r\nOther commands: version output', /more than once/i],
+    ['an empty catalog', 'commands:\r\nOther commands:', /no command catalog/i],
+    ['a loose header colon', 'commands : mode output\r\nOther commands: version', /commands line/i],
+    ['double token spacing', 'commands: mode  output\r\nOther commands: version', /commands line/i],
+    ['punctuated tokens', 'commands: mode output,\r\nOther commands: version', /commands line/i],
+    ['uppercase tokens', 'commands: Mode output\r\nOther commands: version', /commands line/i],
+    ['swapped headers', 'Other commands: version\r\ncommands: mode', /commands line/i],
+    ['arbitrary prose', 'no catalog', /expected exactly/i],
+  ] as const)('rejects malformed help with %s', (_case, response, expected) => {
+    expect(() => parseHelpCommands(response)).toThrow(expected);
   });
 
   it('rebinds a renderer selection to the current enumerated USB identity', () => {
@@ -92,6 +119,23 @@ describe('minimal ZS407 admission service', () => {
     await expect(service.disconnect()).rejects.toThrow(/output off remains unconfirmed/i);
     expect(service.snapshot().connection).toBe('faulted');
   });
+
+  it.each(nonEmptyMutationReplies)('rejects a nonempty output-off %s', async (_case, response) => {
+    const service = new Zs407DeviceService(new ScriptedTransport({ mutationReplies: { 'output off': response } }));
+
+    await expect(service.connect(port)).rejects.toThrow(/mutating commands require an empty reply/i);
+    expect(service.snapshot()).toMatchObject({
+      connection: 'faulted',
+      fault: expect.stringMatching(/power the analyzer off manually/i),
+    });
+  });
+
+  it.each(nonEmptyMutationReplies)('rejects a nonempty mode-input %s', async (_case, response) => {
+    const service = new Zs407DeviceService(new ScriptedTransport({ mutationReplies: { 'mode input': response } }));
+
+    await expect(service.connect(port)).rejects.toThrow(/mutating commands require an empty reply/i);
+    expect(service.snapshot()).toMatchObject({ connection: 'disconnected' });
+  });
 });
 
 class ScriptedTransport implements DeviceTransport {
@@ -100,7 +144,13 @@ class ScriptedTransport implements DeviceTransport {
   #outputOffCount = 0;
   #closeFailures: number;
 
-  constructor(private readonly options: { version?: string; closeFailures?: number; failOutputOffAt?: number; faultDuringOpen?: string } = {}) {
+  constructor(private readonly options: {
+    version?: string;
+    closeFailures?: number;
+    failOutputOffAt?: number;
+    faultDuringOpen?: string;
+    mutationReplies?: Readonly<Partial<Record<'output off' | 'mode input', string>>>;
+  } = {}) {
     this.#closeFailures = options.closeFailures ?? 0;
   }
 
@@ -124,12 +174,15 @@ class ScriptedTransport implements DeviceTransport {
       'output off': '',
       version: this.options.version ?? 'tinySA4_v1.4-217-gc5dd31f\r\nHW Version: V0.5.4 + ZS407',
       info: 'tinySA ULTRA+ ZS407',
-      help: 'system: version info help mode output vbat deviceid capture',
+      help: firmwareHelpCatalog,
       'mode input': '',
       vbat: '4211 mV',
       deviceid: 'deviceid 407',
     };
-    const response = payload[command];
+    const mutationReply = command === 'output off' || command === 'mode input'
+      ? this.options.mutationReplies?.[command]
+      : undefined;
+    const response = mutationReply ?? payload[command];
     if (response === undefined) throw new Error(`Unexpected fixture command ${command}`);
     const frame = new TextEncoder().encode(`${command}\r\n${response}${response ? '\r\n' : ''}ch> `);
     queueMicrotask(() => { for (const listener of this.#bytes) listener(frame); });

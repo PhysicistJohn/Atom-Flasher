@@ -17,6 +17,7 @@ import type { ByteTransport, TransportEvent } from './protocol.js';
 import { SerialTransport } from './serial-transport.js';
 
 const REQUIRED_COMMANDS = ['version', 'info', 'help', 'mode', 'output', 'vbat', 'deviceid', 'capture'] as const;
+type FirmwareMutationCommand = 'output off' | 'mode input';
 
 export interface DeviceTransport extends ByteTransport { list(): Promise<PortCandidate[]>; }
 export const MANUAL_POWER_OFF_CONFIRMATION = 'DEVICE IS PHYSICALLY POWERED OFF' as const;
@@ -49,14 +50,14 @@ export class Zs407DeviceService {
       this.#outputOffUnconfirmed = true;
       this.#scheduler = new CommandScheduler(this.transport);
       this.#snapshot = { connection: 'identifying' };
-      await this.#command('output off');
+      await this.#executeMutation('output off');
       this.#versionResponse = await this.#scheduler.execute('version');
       this.#infoResponse = await this.#scheduler.execute('info');
       this.#commands = parseHelpCommands(await this.#scheduler.execute('help'));
       requireCommands(this.#commands);
       const identity = parseIdentity(this.#versionResponse, this.#infoResponse, liveCandidate);
-      await this.#command('output off');
-      await this.#command('mode input');
+      await this.#executeMutation('output off');
+      await this.#executeMutation('mode input');
       const telemetry = await this.#readTelemetry();
       this.#snapshot = { connection: 'ready', identity, telemetry, connectedAt: new Date().toISOString() };
       return this.snapshot();
@@ -88,7 +89,7 @@ export class Zs407DeviceService {
     if (this.#snapshot.connection === 'disconnected' && !this.#outputOffUnconfirmed) return;
     this.#snapshot = { ...this.#snapshot, connection: 'disconnecting' };
     let outputFailure: unknown;
-    try { if (this.#scheduler) await this.#command('output off'); } catch (value) { outputFailure = value; }
+    try { if (this.#scheduler) await this.#executeMutation('output off'); } catch (value) { outputFailure = value; }
     this.#scheduler?.dispose();
     this.#scheduler = undefined;
     let closeFailure: unknown;
@@ -138,7 +139,7 @@ export class Zs407DeviceService {
 
   async readDiagnostics(): Promise<DeviceDiagnostics> {
     const identity = this.#requireReadyIdentity();
-    await this.#command('output off');
+    await this.#executeMutation('output off');
     const version = await this.#ready().execute('version');
     const info = await this.#ready().execute('info');
     const commands = parseHelpCommands(await this.#ready().execute('help'));
@@ -160,7 +161,7 @@ export class Zs407DeviceService {
   async captureScreen(): Promise<ScreenFrame> {
     this.#requireReadyIdentity();
     if (!this.#commands.includes('capture')) throw new Error('Connected firmware does not expose screen capture');
-    await this.#command('output off');
+    await this.#executeMutation('output off');
     const wirePixels = await this.#ready().executeBinary('capture', SCREEN_BYTES, 20_000);
     const pixels = new Uint8Array(wirePixels.length);
     for (let offset = 0; offset < wirePixels.length; offset += 2) {
@@ -176,12 +177,11 @@ export class Zs407DeviceService {
     return { batteryMillivolts, deviceId, capturedAt: new Date().toISOString() };
   }
 
-  async #command(command: string): Promise<string> {
+  async #executeMutation(command: FirmwareMutationCommand): Promise<void> {
     if (command === 'output off') this.#outputOffUnconfirmed = true;
     const response = await this.#ready().execute(command);
-    if (/^(?:error|invalid|unknown\s+command)\b/im.test(response.trim())) throw new Error(`Firmware rejected ${command}: ${response.trim().slice(0, 500)}`);
+    assertMutationAcknowledged(response, command);
     if (command === 'output off') this.#outputOffUnconfirmed = false;
-    return response;
   }
 
   #ready(): CommandScheduler {
@@ -251,14 +251,25 @@ export function parseIdentity(versionResponse: string, infoResponse: string, por
 }
 
 export function parseHelpCommands(response: string): readonly string[] {
-  const commands = new Set<string>();
-  for (const line of nonEmptyLines(response)) {
-    const colon = line.indexOf(':');
-    if (colon < 0) continue;
-    for (const token of line.slice(colon + 1).trim().split(/\s+/)) if (/^[a-z][a-z0-9_]*$/.test(token)) commands.add(token);
+  const lines = nonEmptyLines(response);
+  if (lines.length !== 2) {
+    throw new Error('Malformed help catalog: expected exactly commands and Other commands lines');
   }
-  if (!commands.size) throw new Error('help response contained no command catalog');
-  return [...commands].sort();
+  const primary = parseHelpCatalogLine(lines[0]!, 'commands');
+  const secondary = parseHelpCatalogLine(lines[1]!, 'Other commands');
+  const commands = [...primary, ...secondary];
+  if (!commands.length) throw new Error('help response contained no command catalog');
+  if (new Set(commands).size !== commands.length) {
+    throw new Error('Malformed help catalog: a command was declared more than once');
+  }
+  return commands.sort();
+}
+
+function parseHelpCatalogLine(line: string, header: 'commands' | 'Other commands'): readonly string[] {
+  const escapedHeader = header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = line.match(new RegExp(`^${escapedHeader}:((?: [a-z][a-z0-9_]*)*)$`));
+  if (!match) throw new Error(`Malformed help catalog ${header} line`);
+  return match[1] ? match[1].slice(1).split(' ') : [];
 }
 
 function requireCommands(commands: readonly string[]): void {
@@ -276,6 +287,12 @@ export function parseDeviceId(response: string): number {
   const value = Number(response.trim().match(/^deviceid\s+(\d+)$/i)?.[1]);
   if (!Number.isSafeInteger(value) || value < 0) throw new Error(`Malformed device ID readback: ${response}`);
   return value;
+}
+
+function assertMutationAcknowledged(response: string, command: string): void {
+  if (response.length === 0) return;
+  const firstLine = response.replaceAll('\r', '').split('\n')[0]!.slice(0, 160);
+  throw new Error(`Firmware rejected command ${command}: mutating commands require an empty reply, received ${JSON.stringify(firstLine)}`);
 }
 
 function nonEmptyLines(value: string): string[] { return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean); }
