@@ -40,40 +40,52 @@ const dfuLine = 'Found DFU: [0483:df11] ver=2200, devnum=5, cfg=1, intf=0, path=
 describe('FirmwareUpdater transaction boundaries', () => {
   it('normalizes an interrupted pre-write download to a persisted retryable failure', async () => {
     const directory = await temporary();
-    const interrupted = firmwareUpdateJournalV2Schema.parse({
-      schemaVersion: 2,
-      targetId: OEM_ZS407_FIRMWARE_TARGET.targetId,
-      targetSha256: firmwareTargetV2Sha256(OEM_ZS407_FIRMWARE_TARGET),
-      writtenAt: new Date().toISOString(),
-      state: {
-        phase: 'downloading',
-        target: OEM_ZS407_FIRMWARE_TARGET,
-        targetRelation: 'different-supported',
-        writeIntent: 'update-oem',
-        updateAvailable: true,
-        current: {
-          version: 'tinySA4_v1.4-217-gc5dd31f',
-          revision: 'c5dd31f',
-          qualification: 'supported-oem',
-        },
-        dfuUtility: { available: false },
-        dfuDevice: { detected: false, count: 0 },
-        writeDisposition: 'not-started',
-      },
-    });
+    const interrupted = interruptedDownloadJournal();
     await writeFile(join(directory, JOURNAL_V2_FILENAME), JSON.stringify(interrupted, null, 2), { flag: 'wx' });
-    const updater = new FirmwareUpdater(directory, new FakeFirmwareDevice(), runtimeFixture(async () => successfulTransfer()));
+    const updater = new FirmwareUpdater(directory, new FakeFirmwareDevice(), {
+      ...runtimeFixture(async () => successfulTransfer()),
+      locateDfuUtility: async () => undefined,
+    });
 
     expect(await updater.state()).toMatchObject({
       phase: 'failed',
+      dfuUtility: { available: false },
       writeDisposition: 'not-started',
       error: expect.stringMatching(/ended during firmware download.*no write began/i),
     });
     expect(JSON.parse(await readFile(join(directory, JOURNAL_V2_FILENAME), 'utf8'))).toMatchObject({
-      state: { phase: 'failed', writeDisposition: 'not-started' },
+      state: {
+        phase: 'failed',
+        dfuUtility: { available: false },
+        writeDisposition: 'not-started',
+        error: expect.stringMatching(/ended during firmware download.*no write began/i),
+      },
     });
     await expect(updater.download()).resolves.toMatchObject({ phase: 'verified' });
     expect(await present(join(directory, 'firmware-write.lock'))).toBe(false);
+  });
+
+  it('does not replace a recovered failure diagnostic when dfu-util inspection itself fails', async () => {
+    const directory = await temporary();
+    const interrupted = interruptedDownloadJournal();
+    await writeFile(join(directory, JOURNAL_V2_FILENAME), JSON.stringify(interrupted, null, 2), { flag: 'wx' });
+    const updater = new FirmwareUpdater(directory, new FakeFirmwareDevice(), {
+      ...runtimeFixture(async () => successfulTransfer()),
+      locateDfuUtility: async () => { throw new Error('fixture discovery failure'); },
+    });
+
+    await expect(updater.state()).resolves.toMatchObject({
+      phase: 'failed',
+      dfuUtility: { available: false },
+      writeDisposition: 'not-started',
+      error: expect.stringMatching(/ended during firmware download.*no write began/i),
+    });
+    expect(JSON.parse(await readFile(join(directory, JOURNAL_V2_FILENAME), 'utf8'))).toMatchObject({
+      state: {
+        phase: 'failed',
+        error: expect.stringMatching(/ended during firmware download.*no write began/i),
+      },
+    });
   });
 
   it('migrates an unprepared v1 session before recording new v2 preflight evidence', async () => {
@@ -876,6 +888,30 @@ function runtimeFixture(runDfuExecutable: FirmwareUpdaterRuntime['runDfuExecutab
 
 function successfulTransfer(): DfuExecutionResult {
   return { stdout: 'Download done.\nFile downloaded successfully', stderr: '', outputTruncated: false, exceededExpectedDuration: false };
+}
+
+function interruptedDownloadJournal() {
+  return firmwareUpdateJournalV2Schema.parse({
+    schemaVersion: 2,
+    targetId: OEM_ZS407_FIRMWARE_TARGET.targetId,
+    targetSha256: firmwareTargetV2Sha256(OEM_ZS407_FIRMWARE_TARGET),
+    writtenAt: new Date().toISOString(),
+    state: {
+      phase: 'downloading',
+      target: OEM_ZS407_FIRMWARE_TARGET,
+      targetRelation: 'different-supported',
+      writeIntent: 'update-oem',
+      updateAvailable: true,
+      current: {
+        version: 'tinySA4_v1.4-217-gc5dd31f',
+        revision: 'c5dd31f',
+        qualification: 'supported-oem',
+      },
+      dfuUtility: { available: false },
+      dfuDevice: { detected: false, count: 0 },
+      writeDisposition: 'not-started',
+    },
+  });
 }
 
 function validPreflight() {

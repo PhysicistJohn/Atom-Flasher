@@ -855,11 +855,16 @@ export class FirmwareUpdater {
   async #recordDfuUtilityUnavailable(error?: string): Promise<void> {
     this.#dfuUtilityPath = undefined;
     const wasReady = this.#state.phase === 'ready-to-flash';
+    // A failed state's diagnostic is part of its fail-closed contract and may
+    // also be the durable explanation recovered from the transaction journal.
+    // Prerequisite discovery must never erase or replace that evidence. The
+    // structured availability flag still records that dfu-util is unavailable.
+    const diagnostic = this.#state.phase === 'failed' ? this.#state.error ?? error : error;
     this.#state = {
       ...this.#state,
       ...(wasReady ? { phase: 'awaiting-dfu' as const, dfuDevice: { detected: false, count: 0 } } : {}),
       dfuUtility: { available: false },
-      ...(error ? { error } : { error: undefined }),
+      error: diagnostic,
     };
     if (wasReady) await this.#transactionStore.persist(this.#state);
   }
