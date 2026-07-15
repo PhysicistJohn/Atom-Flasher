@@ -22,12 +22,19 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:release-tools": "node --test tools/release-gate.test.mjs tools/release-provenance.test.mjs",
     "inspect:evidence": "node tools/inspect-evidence.mjs",
+    "release:assert-clean": "node tools/release-gate.mjs assert-clean",
+    "release:begin": "node tools/release-gate.mjs begin",
+    "release:checkpoint": "node tools/release-gate.mjs checkpoint",
+    "release:finish": "node tools/release-gate.mjs finish",
+    "artifacts:provenance": "node tools/release-provenance.mjs write",
+    "artifacts:provenance:verify": "node tools/release-provenance.mjs verify",
     "artifacts:checksums": "node tools/release-artifacts.mjs write",
     "artifacts:verify": "node tools/release-artifacts.mjs verify",
     "smoke:package": "node tools/smoke-package.mjs",
-    "check": "npm run lint && npm run check:contracts && npm run typecheck && npm run test:coverage && npm run build",
-    "package:mac": "npm run clean:release && npm run check && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip && npm run smoke:package && npm run artifacts:checksums && npm run artifacts:verify"
+    "check": "npm run lint && npm run check:contracts && npm run typecheck && npm run test:coverage && npm run test:release-tools && npm run build",
+    "package:mac": "npm run release:begin && npm run clean:release && npm run check && npm run release:checkpoint && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip && npm run release:checkpoint && npm run smoke:package && npm run artifacts:provenance && npm run artifacts:checksums && npm run artifacts:verify && npm run artifacts:provenance:verify && npm run release:finish"
   },
   "dependencies": {
     "react": "19.2.7",

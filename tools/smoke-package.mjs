@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { constants } from 'node:fs';
-import { access, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -14,10 +14,12 @@ import { assertElectronFusePolicy } from './electron-fuse-policy.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const releaseDirectory = join(root, 'release');
+const inspectionReportPath = join(releaseDirectory, 'PACKAGE-INSPECTION.json');
 const projectPackage = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
 
 if (process.platform !== 'darwin') throw new Error('The current packaged smoke target is macOS only');
 
+await rm(inspectionReportPath, { force: true });
 const temporary = await mkdtemp(join(tmpdir(), 'tinysa-flasher-package-smoke-'));
 try {
   const { dmg, zip } = await distributionContainers();
@@ -35,7 +37,8 @@ try {
   }
   const extractedInspection = await inspectApplication(applications[0]);
   assertMatchingApplicationIdentity(mountedInspection.identity, extractedInspection.identity, dmg, zip);
-  await smokeApplication(extractedInspection, temporary, { dmg, zip });
+  const runtime = await smokeApplication(extractedInspection, temporary, { dmg, zip });
+  await writeInspectionReport({ dmg, zip }, extractedInspection.identity, runtime);
 } finally {
   await rm(temporary, { force: true, recursive: true });
 }
@@ -157,6 +160,42 @@ async function smokeApplication(inspection, temporaryDirectory, containers) {
     if (error?.code !== 'ENOENT') throw error;
   }
   process.stdout.write(`Mounted and inspected ${basename(containers.dmg)}, extracted and ran ${basename(containers.zip)}, matched their packaged application identities, and passed ad-hoc hardened-runtime signing (${inspection.signature.flags.join(',')}), strict fuses ${JSON.stringify(inspection.fuseStates)}, manifest, preload, renderer, and isolated runtime smoke (${marker.architecture}, Electron ${marker.electron}).\n`);
+  return marker;
+}
+
+async function writeInspectionReport(containers, identity, runtime) {
+  const artifacts = await Promise.all([
+    inspectedArtifact('dmg', containers.dmg),
+    inspectedArtifact('zip', containers.zip),
+  ]);
+  artifacts.sort((left, right) => (left.kind === right.kind ? 0 : left.kind === 'dmg' ? -1 : 1));
+  const report = {
+    schemaVersion: 1,
+    artifacts,
+    application: {
+      architecture: runtime.architecture,
+      electron: runtime.electron,
+      archiveSha256: identity.archiveSha256,
+      bundle: identity.bundle,
+      signature: identity.signature,
+      fuseStates: identity.fuseStates,
+    },
+  };
+  const temporary = `${inspectionReportPath}.tmp-${process.pid}`;
+  try {
+    await writeFile(temporary, `${JSON.stringify(report, null, 2)}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o644 });
+    await rename(temporary, inspectionReportPath);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+  process.stdout.write('Wrote deterministic external package inspection to release/PACKAGE-INSPECTION.json.\n');
+}
+
+async function inspectedArtifact(kind, path) {
+  const metadata = await stat(path);
+  if (!metadata.isFile()) throw new Error(`Expected a regular ${kind.toUpperCase()} artifact: ${path}`);
+  return { kind, name: basename(path), bytes: metadata.size, sha256: await sha256File(path) };
 }
 
 async function distributionContainers() {
