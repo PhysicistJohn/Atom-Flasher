@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://physicistjohn.github.io/tinysa-flasher/contracts/firmware-release-v1.schema.json",
+  "title": "TinySA Flasher immutable firmware release manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "$id",
+    "manifestVersion",
+    "releaseId",
+    "product",
+    "version",
+    "revision",
+    "sourceCommit",
+    "publishedAt",
+    "downloadUrl",
+    "sha256",
+    "sizeBytes",
+    "transportIntegrity"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../schemas/firmware-release-v1.schema.json"
+    },
+    "$id": {
+      "type": "string",
+      "pattern": "^https://physicistjohn\\.github\\.io/tinysa-flasher/contracts/releases/[a-z0-9-]+-v1\\.json$"
+    },
+    "manifestVersion": {
+      "const": 1
+    },
+    "releaseId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "product": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{7,40}$"
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "downloadUrl": {
+      "type": "string",
+      "pattern": "^https?://"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "transportIntegrity": {
+      "const": "pinned-sha256"
+    }
+  }
+}

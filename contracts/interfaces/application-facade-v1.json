@@ -1,0 +1,1142 @@
+{
+  "$schema": "../schemas/interface-contract-v2.schema.json",
+  "contractId": "tinysa-flasher-application-facade",
+  "contractVersion": 1,
+  "kind": "domain-service",
+  "owner": "desktop-composition-root",
+  "provider": "FlasherApplication",
+  "consumers": [
+    "Electron lifecycle host",
+    "renderer IPC adapter"
+  ],
+  "compatibility": "exact-version",
+  "typeDefinitions": {
+    "FlasherApplication": {
+      "sourceModule": "src/application/flasher-application.ts",
+      "typeExport": "FlasherApplication",
+      "sourceSignature": "class FlasherApplication { get criticalSection(): ApplicationActivity['criticalSection']; get admission(): ApplicationActivity['admission']; get activeOperation(): ApplicationOperation | undefined; initialize(): Promise<ApplicationSnapshot>; snapshot(): ApplicationSnapshot; scanDevices(): Promise<ApplicationActionResult>; connectDevice(candidate: PortCandidate): Promise<ApplicationActionResult>; disconnectDevice(): Promise<ApplicationActionResult>; recoverDevice(): Promise<ApplicationActionResult>; selectOemTarget(): Promise<ApplicationActionResult>; selectLocalFirmwareTarget(): Promise<ApplicationActionResult>; download(): Promise<ApplicationActionResult>; prepare(input: FirmwareUpdatePreflight): Promise<ApplicationActionResult>; detectDfu(): Promise<ApplicationActionResult>; refreshPrerequisites(): Promise<ApplicationActionResult>; flash(preparationId: string): Promise<ApplicationActionResult>; requestShutdown(): Promise<'safe' | 'blocked-critical'>; releaseForWindowClose(): Promise<'safe' | 'blocked-critical'>; resumeAfterWindowOpen(): void }"
+    },
+    "ApplicationDevicePort": {
+      "sourceModule": "src/application/flasher-application.ts",
+      "typeExport": "ApplicationDevicePort",
+      "sourceSignature": "export interface ApplicationDevicePort { listDevices(): Promise<PortCandidate[]>; snapshot(): DeviceSnapshot; connect(candidate: PortCandidate): Promise<DeviceSnapshot>; disconnect(): Promise<void>; recoverAfterManualPowerOff(confirmation: typeof MANUAL_POWER_OFF_CONFIRMATION): Promise<DeviceSnapshot>; }"
+    },
+    "ApplicationUpdaterPort": {
+      "sourceModule": "src/application/flasher-application.ts",
+      "typeExport": "ApplicationUpdaterPort",
+      "sourceSignature": "export interface ApplicationUpdaterPort { state(): Promise<FirmwareUpdateState>; snapshot(): FirmwareUpdateState; download(): Promise<FirmwareUpdateState>; prepare(input: FirmwareUpdatePreflight): Promise<FirmwareUpdateState>; detectDfu(): Promise<FirmwareUpdateState>; refreshPrerequisites(): Promise<FirmwareUpdateState>; flash(input: FirmwareFlashRequest): Promise<FirmwareUpdateState>; selectOemTarget(): Promise<FirmwareUpdateState>; admitLocalCustomTarget(target: LocalCustomFirmwareTarget, artifact: AdmittedFirmwareArtifact): Promise<FirmwareUpdateState>; }"
+    },
+    "NativeSafetyPromptPort": {
+      "sourceModule": "src/application/flasher-application.ts",
+      "typeExport": "NativeSafetyPromptPort",
+      "sourceSignature": "export interface NativeSafetyPromptPort { confirmFirmwareWrite(input: FirmwareWritePrompt): Promise<boolean>; confirmPhysicalPowerOff(): Promise<boolean>; }"
+    },
+    "LocalFirmwareTargetSelection": {
+      "sourceModule": "src/application/flasher-application.ts",
+      "typeExport": "LocalFirmwareTargetSelection",
+      "sourceSignature": "export interface LocalFirmwareTargetSelection { readonly target: LocalCustomFirmwareTarget; readonly artifact: AdmittedFirmwareArtifact; }"
+    },
+    "LocalFirmwareTargetPickerPort": {
+      "sourceModule": "src/application/flasher-application.ts",
+      "typeExport": "LocalFirmwareTargetPickerPort",
+      "sourceSignature": "export interface LocalFirmwareTargetPickerPort { selectLocalFirmwareTarget(): Promise<LocalFirmwareTargetSelection | undefined>; }"
+    },
+    "FirmwareWritePrompt": {
+      "sourceModule": "src/application/flasher-application.ts",
+      "typeExport": "FirmwareWritePrompt",
+      "sourceSignature": "export type FirmwareWritePrompt = { readonly preparationId: string; readonly targetId: string; readonly targetVersion: string; readonly targetSha256: string; } & ({ readonly targetKind: 'oem'; } | { readonly targetKind: 'local-custom'; readonly targetManifestSha256: string; });"
+    },
+    "ApplicationTimeAndIdentityPort": {
+      "sourceModule": "src/application/flasher-application.ts",
+      "typeExport": "ApplicationTimeAndIdentityPort",
+      "sourceSignature": "export interface ApplicationTimeAndIdentityPort { now(): Date; randomUuid(): string; }"
+    },
+    "ApplicationSnapshot": {
+      "sourceModule": "src/application/application-contract.ts",
+      "runtimeValidator": "applicationSnapshotSchema",
+      "typeExport": "ApplicationSnapshot",
+      "sourceSignature": "export type ApplicationSnapshot = z.infer<typeof applicationSnapshotSchema>;"
+    },
+    "ApplicationActionResult": {
+      "sourceModule": "src/application/application-contract.ts",
+      "runtimeValidator": "applicationActionResultSchema",
+      "typeExport": "ApplicationActionResult",
+      "sourceSignature": "export type ApplicationActionResult = z.infer<typeof applicationActionResultSchema>;"
+    },
+    "ApplicationOperation": {
+      "sourceModule": "src/application/application-contract.ts",
+      "runtimeValidator": "applicationOperationSchema",
+      "typeExport": "ApplicationOperation",
+      "sourceSignature": "export type ApplicationOperation = z.infer<typeof applicationOperationSchema>;"
+    },
+    "ApplicationCriticalSection": {
+      "sourceModule": "src/application/application-contract.ts",
+      "runtimeValidator": "applicationCriticalSectionSchema",
+      "typeExport": "ApplicationCriticalSection",
+      "sourceSignature": "export type ApplicationCriticalSection = z.infer<typeof applicationCriticalSectionSchema>;"
+    },
+    "ApplicationAdmission": {
+      "sourceModule": "src/application/application-contract.ts",
+      "runtimeValidator": "applicationAdmissionSchema",
+      "typeExport": "ApplicationAdmission",
+      "sourceSignature": "export type ApplicationAdmission = z.infer<typeof applicationAdmissionSchema>;"
+    },
+    "PortCandidate": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "portCandidateSchema",
+      "typeExport": "PortCandidate",
+      "sourceSignature": "export type PortCandidate = z.infer<typeof portCandidateSchema>;"
+    },
+    "DeviceSnapshot": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "deviceSnapshotSchema",
+      "typeExport": "DeviceSnapshot",
+      "sourceSignature": "export type DeviceSnapshot = z.infer<typeof deviceSnapshotSchema>;"
+    },
+    "FirmwareUpdateState": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "firmwareUpdateStateSchema",
+      "typeExport": "FirmwareUpdateState",
+      "sourceSignature": "export type FirmwareUpdateState = z.infer<typeof firmwareUpdateStateSchema>;"
+    },
+    "FirmwareUpdatePreflight": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "firmwareUpdatePreflightSchema",
+      "typeExport": "FirmwareUpdatePreflight",
+      "sourceSignature": "export type FirmwareUpdatePreflight = z.infer<typeof firmwareUpdatePreflightSchema>;"
+    },
+    "FirmwareFlashRequest": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "firmwareFlashRequestSchema",
+      "typeExport": "FirmwareFlashRequest",
+      "sourceSignature": "export type FirmwareFlashRequest = z.infer<typeof firmwareFlashRequestSchema>;"
+    },
+    "LocalCustomFirmwareTarget": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "localCustomFirmwareTargetSchema",
+      "typeExport": "LocalCustomFirmwareTarget",
+      "sourceSignature": "export type LocalCustomFirmwareTarget = z.infer<typeof localCustomFirmwareTargetSchema>;"
+    },
+    "LifecycleReleaseResult": {
+      "sourceModule": "src/application/flasher-application.ts",
+      "platformType": "'safe' | 'blocked-critical'"
+    },
+    "Date": {
+      "sourceModule": "platform:ecmascript",
+      "platformType": "Date"
+    },
+    "string": {
+      "sourceModule": "platform:ecmascript",
+      "platformType": "string"
+    },
+    "boolean": {
+      "sourceModule": "platform:ecmascript",
+      "platformType": "boolean"
+    },
+    "void": {
+      "sourceModule": "platform:ecmascript",
+      "platformType": "void"
+    }
+  },
+  "capabilities": [
+    {
+      "capabilityId": "device-list-devices",
+      "input": {
+        "typeRef": "ApplicationDevicePort",
+        "description": "A conforming application device provider."
+      },
+      "output": {
+        "typeRef": "PortCandidate",
+        "description": "Zero or more normalized current USB candidates."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_DISCOVERY_FAILED",
+          "retryability": "safe",
+          "description": "Serial discovery failed."
+        }
+      ],
+      "invariants": [
+        "The application revalidates every candidate before publishing it."
+      ]
+    },
+    {
+      "capabilityId": "device-snapshot",
+      "input": {
+        "typeRef": "ApplicationDevicePort",
+        "description": "A conforming application device provider."
+      },
+      "output": {
+        "typeRef": "DeviceSnapshot",
+        "description": "The current validated device state."
+      },
+      "errors": [],
+      "invariants": [
+        "Snapshot is synchronous and side-effect free."
+      ]
+    },
+    {
+      "capabilityId": "device-connect",
+      "input": {
+        "typeRef": "PortCandidate",
+        "description": "One exact candidate from the current enumeration."
+      },
+      "output": {
+        "typeRef": "DeviceSnapshot",
+        "description": "An admitted ready or explicit failure state."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "Physical identity or safety admission failed."
+        }
+      ],
+      "invariants": [
+        "RF-off and exact ZS407 identity admission occur before ready state."
+      ]
+    },
+    {
+      "capabilityId": "device-disconnect",
+      "input": {
+        "typeRef": "ApplicationDevicePort",
+        "description": "The current device provider."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Completion after safe disconnect."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_SAFETY_FAULT",
+          "retryability": "conditional",
+          "description": "RF-off or close could not be confirmed."
+        }
+      ],
+      "invariants": [
+        "A failed disconnect never reports a safe disconnected state."
+      ]
+    },
+    {
+      "capabilityId": "device-recover-after-power-off",
+      "input": {
+        "typeRef": "ApplicationDevicePort",
+        "description": "The faulted device provider plus the exact internal power-off confirmation."
+      },
+      "output": {
+        "typeRef": "DeviceSnapshot",
+        "description": "Recovered disconnected state."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_SAFETY_FAULT",
+          "retryability": "conditional",
+          "description": "The fault is ineligible or power-off recovery failed."
+        }
+      ],
+      "invariants": [
+        "Only the application can supply the internal confirmation after a native prompt."
+      ]
+    },
+    {
+      "capabilityId": "updater-state",
+      "input": {
+        "typeRef": "ApplicationUpdaterPort",
+        "description": "A conforming updater provider."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Recovered and device-synchronized update state."
+      },
+      "errors": [
+        {
+          "code": "EVIDENCE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "Durable evidence cannot be safely recovered."
+        }
+      ],
+      "invariants": [
+        "Recovery executes before update operations are admitted."
+      ]
+    },
+    {
+      "capabilityId": "updater-snapshot",
+      "input": {
+        "typeRef": "ApplicationUpdaterPort",
+        "description": "A conforming updater provider."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Current validated updater state."
+      },
+      "errors": [],
+      "invariants": [
+        "Snapshot does not mutate durable state."
+      ]
+    },
+    {
+      "capabilityId": "updater-download",
+      "input": {
+        "typeRef": "ApplicationUpdaterPort",
+        "description": "An updater with the OEM target selected."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Verified OEM artifact state."
+      },
+      "errors": [
+        {
+          "code": "FIRMWARE_SOURCE_FAILED",
+          "retryability": "safe",
+          "description": "OEM artifact download or verification failed."
+        }
+      ],
+      "invariants": [
+        "Download is legal only for the canonical OEM target."
+      ]
+    },
+    {
+      "capabilityId": "updater-prepare",
+      "input": {
+        "typeRef": "FirmwareUpdatePreflight",
+        "description": "Strict human and physical preflight attestations."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Durably prepared awaiting-DFU state."
+      },
+      "errors": [
+        {
+          "code": "PREFLIGHT_FAILED",
+          "retryability": "conditional",
+          "description": "Preflight observation or persistence failed."
+        }
+      ],
+      "invariants": [
+        "The selected target cannot change after preparation."
+      ]
+    },
+    {
+      "capabilityId": "updater-detect-dfu",
+      "input": {
+        "typeRef": "ApplicationUpdaterPort",
+        "description": "A prepared updater provider."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Awaiting-DFU or ready-to-flash state."
+      },
+      "errors": [
+        {
+          "code": "DFU_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "Exactly one canonical DFU identity was not admitted."
+        }
+      ],
+      "invariants": [
+        "Detection never writes firmware."
+      ]
+    },
+    {
+      "capabilityId": "updater-refresh-prerequisites",
+      "input": {
+        "typeRef": "ApplicationUpdaterPort",
+        "description": "A prepared updater provider."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "State with refreshed dfu-util availability."
+      },
+      "errors": [
+        {
+          "code": "DFU_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "dfu-util 0.11 is unavailable."
+        }
+      ],
+      "invariants": [
+        "Availability requires exact version 0.11."
+      ]
+    },
+    {
+      "capabilityId": "updater-flash",
+      "input": {
+        "typeRef": "FirmwareFlashRequest",
+        "description": "The exact preparation and target-specific internal confirmation literal."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Verified completion or fail-closed state."
+      },
+      "errors": [
+        {
+          "code": "WRITE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "A write may have started without complete verification."
+        }
+      ],
+      "invariants": [
+        "Durable write admission precedes dfu-util spawn."
+      ]
+    },
+    {
+      "capabilityId": "updater-select-oem-target",
+      "input": {
+        "typeRef": "ApplicationUpdaterPort",
+        "description": "An unprepared updater provider."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "State targeting the canonical OEM release."
+      },
+      "errors": [
+        {
+          "code": "UPDATE_PRECONDITION_FAILED",
+          "retryability": "conditional",
+          "description": "Target selection is locked by preparation or write state."
+        }
+      ],
+      "invariants": [
+        "Selection clears artifacts belonging to a different target."
+      ]
+    },
+    {
+      "capabilityId": "updater-admit-local-custom-target",
+      "input": {
+        "typeRef": "LocalCustomFirmwareTarget",
+        "description": "A validated target with its bound admitted artifact capability."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Verified custom-target state, or rebound awaiting-DFU state for a recovered preparation."
+      },
+      "errors": [
+        {
+          "code": "ARTIFACT_REJECTED",
+          "retryability": "never",
+          "description": "The artifact capability does not reproduce the target digest, size, and manifest proof."
+        }
+      ],
+      "invariants": [
+        "AdmittedFirmwareArtifact is target-ID-bound and openVerified binds reverified bytes to the exact descriptor inherited by dfu-util.",
+        "Rebinding a recovered prepared custom target clears stale DFU identity and requires fresh detection before flash."
+      ]
+    },
+    {
+      "capabilityId": "prompt-confirm-firmware-write",
+      "input": {
+        "typeRef": "FirmwareWritePrompt",
+        "description": "Target identity shown through NativeSafetyPromptPort in a native main-process prompt; custom prompts include the full manifest SHA-256."
+      },
+      "output": {
+        "typeRef": "boolean",
+        "description": "Operator decision supplied only to application policy."
+      },
+      "errors": [],
+      "invariants": [
+        "The renderer never supplies a flash confirmation literal.",
+        "Custom confirmation binds artifact target ID and manifest SHA-256 so alternate provenance/qualification manifests cannot be conflated."
+      ]
+    },
+    {
+      "capabilityId": "prompt-confirm-physical-power-off",
+      "input": {
+        "typeRef": "NativeSafetyPromptPort",
+        "description": "A request for independent physical power-off confirmation."
+      },
+      "output": {
+        "typeRef": "boolean",
+        "description": "Operator decision interpreted by the application."
+      },
+      "errors": [],
+      "invariants": [
+        "Confirmation is independent of renderer state."
+      ]
+    },
+    {
+      "capabilityId": "picker-select-local-target",
+      "input": {
+        "typeRef": "LocalFirmwareTargetPickerPort",
+        "description": "Native-main target picker capability."
+      },
+      "output": {
+        "typeRef": "LocalFirmwareTargetSelection",
+        "description": "A validated target/artifact pair or cancellation."
+      },
+      "errors": [
+        {
+          "code": "ARTIFACT_REJECTED",
+          "retryability": "never",
+          "description": "Selected files fail strict local build admission."
+        }
+      ],
+      "invariants": [
+        "No renderer-controlled filesystem path enters the port."
+      ]
+    },
+    {
+      "capabilityId": "clock-now",
+      "input": {
+        "typeRef": "ApplicationTimeAndIdentityPort",
+        "description": "Injectable application clock."
+      },
+      "output": {
+        "typeRef": "Date",
+        "description": "A valid current Date."
+      },
+      "errors": [
+        {
+          "code": "INVALID_RUNTIME_VALUE",
+          "retryability": "never",
+          "description": "The runtime returned an invalid date."
+        }
+      ],
+      "invariants": [
+        "Persisted/public timestamps are strict ISO instants."
+      ]
+    },
+    {
+      "capabilityId": "identity-random-uuid",
+      "input": {
+        "typeRef": "ApplicationTimeAndIdentityPort",
+        "description": "Injectable application identity source."
+      },
+      "output": {
+        "typeRef": "string",
+        "description": "A UUID-v4 application instance identifier."
+      },
+      "errors": [
+        {
+          "code": "INVALID_RUNTIME_VALUE",
+          "retryability": "never",
+          "description": "The runtime returned a non-UUID identity."
+        }
+      ],
+      "invariants": [
+        "Production identities use cryptographic randomUUID."
+      ]
+    },
+    {
+      "capabilityId": "application-critical-section",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Initialized application facade."
+      },
+      "output": {
+        "typeRef": "ApplicationCriticalSection",
+        "description": "Current native/write critical section."
+      },
+      "errors": [],
+      "invariants": [
+        "Lifecycle release is blocked while this value is not none."
+      ]
+    },
+    {
+      "capabilityId": "application-admission",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Initialized application facade."
+      },
+      "output": {
+        "typeRef": "ApplicationAdmission",
+        "description": "Accepting, draining, or closed operation admission."
+      },
+      "errors": [],
+      "invariants": [
+        "Closed admission cannot be reopened."
+      ]
+    },
+    {
+      "capabilityId": "application-active-operation",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Initialized application facade."
+      },
+      "output": {
+        "typeRef": "ApplicationOperation",
+        "description": "Current serialized operation, if any."
+      },
+      "errors": [],
+      "invariants": [
+        "At most one application operation is active."
+      ]
+    },
+    {
+      "capabilityId": "application-initialize",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "A newly composed application facade."
+      },
+      "output": {
+        "typeRef": "ApplicationSnapshot",
+        "description": "First recovered aggregate snapshot."
+      },
+      "errors": [
+        {
+          "code": "EVIDENCE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "Updater recovery failed closed."
+        }
+      ],
+      "invariants": [
+        "Concurrent initialization shares one recovery attempt."
+      ]
+    },
+    {
+      "capabilityId": "application-snapshot",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Initialized application facade."
+      },
+      "output": {
+        "typeRef": "ApplicationSnapshot",
+        "description": "Strict aggregate snapshot with derived actions."
+      },
+      "errors": [
+        {
+          "code": "OPERATION_FAILED",
+          "retryability": "never",
+          "description": "A component returned invalid state."
+        }
+      ],
+      "invariants": [
+        "Allowed actions derive from the same snapshot state."
+      ]
+    },
+    {
+      "capabilityId": "application-scan-devices",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Idle application facade."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Completed scan and fresh snapshot."
+      },
+      "errors": [
+        {
+          "code": "OPERATION_BUSY",
+          "retryability": "safe",
+          "description": "Admission or operation gate rejected the request."
+        }
+      ],
+      "invariants": [
+        "Server-side policy independently admits the action."
+      ]
+    },
+    {
+      "capabilityId": "application-connect-device",
+      "input": {
+        "typeRef": "PortCandidate",
+        "description": "One candidate from the published discovery set."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Connection result and fresh snapshot."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "Device admission failed."
+        }
+      ],
+      "invariants": [
+        "Updater state is synchronized after connection."
+      ]
+    },
+    {
+      "capabilityId": "application-disconnect-device",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "A ready or faulted application device."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Disconnect result and fresh snapshot."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_SAFETY_FAULT",
+          "retryability": "conditional",
+          "description": "Safe disconnect failed."
+        }
+      ],
+      "invariants": [
+        "Updater state is synchronized after disconnect."
+      ]
+    },
+    {
+      "capabilityId": "application-recover-device",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "A faulted device and native prompt capability."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Cancelled or completed recovery result."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_SAFETY_FAULT",
+          "retryability": "conditional",
+          "description": "Recovery is unavailable or failed."
+        }
+      ],
+      "invariants": [
+        "Native confirmation precedes recovery."
+      ]
+    },
+    {
+      "capabilityId": "application-select-oem-target",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Idle, unprepared application."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "OEM selection result."
+      },
+      "errors": [
+        {
+          "code": "UPDATE_PRECONDITION_FAILED",
+          "retryability": "conditional",
+          "description": "Target selection is not allowed."
+        }
+      ],
+      "invariants": [
+        "Selection is policy-gated in main."
+      ]
+    },
+    {
+      "capabilityId": "application-select-local-firmware-target",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Idle eligible application, including recovered custom preparation awaiting capability rebind."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Cancelled or completed native selection/rebind result."
+      },
+      "errors": [
+        {
+          "code": "ARTIFACT_REJECTED",
+          "retryability": "never",
+          "description": "Local build admission or exact recovered-target rebind failed."
+        }
+      ],
+      "invariants": [
+        "Native-file-selection is a lifecycle critical section.",
+        "While a prepared custom target is unbound, select-local is the only update action advertised; rebind requires fresh DFU detection."
+      ]
+    },
+    {
+      "capabilityId": "application-download",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "OEM-target application with a different supported physical firmware."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "OEM download result."
+      },
+      "errors": [
+        {
+          "code": "FIRMWARE_SOURCE_FAILED",
+          "retryability": "safe",
+          "description": "Transport or verification failed."
+        }
+      ],
+      "invariants": [
+        "Custom targets never enter the network download path."
+      ]
+    },
+    {
+      "capabilityId": "application-prepare",
+      "input": {
+        "typeRef": "FirmwareUpdatePreflight",
+        "description": "Exact operator attestations."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Preparation result."
+      },
+      "errors": [
+        {
+          "code": "PREFLIGHT_FAILED",
+          "retryability": "conditional",
+          "description": "Preparation failed."
+        }
+      ],
+      "invariants": [
+        "Input is runtime-validated before the updater call."
+      ]
+    },
+    {
+      "capabilityId": "application-detect-dfu",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Prepared application."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "DFU detection result."
+      },
+      "errors": [
+        {
+          "code": "DFU_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "DFU target admission failed."
+        }
+      ],
+      "invariants": [
+        "Detection is read-only."
+      ]
+    },
+    {
+      "capabilityId": "application-refresh-prerequisites",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Prepared application."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Prerequisite refresh result."
+      },
+      "errors": [
+        {
+          "code": "DFU_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "The utility prerequisite is unavailable."
+        }
+      ],
+      "invariants": [
+        "Refresh cannot cross the write boundary."
+      ]
+    },
+    {
+      "capabilityId": "application-flash",
+      "input": {
+        "typeRef": "string",
+        "description": "The renderer-selected active preparation UUID; confirmation remains native-only."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Cancelled or completed write result."
+      },
+      "errors": [
+        {
+          "code": "WRITE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "Write completion cannot be proven."
+        }
+      ],
+      "invariants": [
+        "The target-specific literal is synthesized only after native confirmation."
+      ]
+    },
+    {
+      "capabilityId": "application-request-shutdown",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Host permanent-shutdown request."
+      },
+      "output": {
+        "typeRef": "LifecycleReleaseResult",
+        "description": "Safe release or blocked critical section."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_SAFETY_FAULT",
+          "retryability": "conditional",
+          "description": "Safe disconnect failed."
+        }
+      ],
+      "invariants": [
+        "Safe permanent release closes operation admission."
+      ]
+    },
+    {
+      "capabilityId": "application-release-for-window-close",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Host renderer-window release request."
+      },
+      "output": {
+        "typeRef": "LifecycleReleaseResult",
+        "description": "Safe release or blocked critical section."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_SAFETY_FAULT",
+          "retryability": "conditional",
+          "description": "Safe disconnect failed."
+        }
+      ],
+      "invariants": [
+        "Successful release remains draining until a trusted replacement window is installed."
+      ]
+    },
+    {
+      "capabilityId": "application-resume-after-window-open",
+      "input": {
+        "typeRef": "FlasherApplication",
+        "description": "Host notification after installing a trusted replacement window."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Renderer operation admission reopens."
+      },
+      "errors": [
+        {
+          "code": "OPERATION_BUSY",
+          "retryability": "conditional",
+          "description": "Admission is permanently closed or an operation is active."
+        }
+      ],
+      "invariants": [
+        "Only the host lifecycle invokes this method."
+      ]
+    }
+  ],
+  "sourceProjections": [
+    {
+      "sourceModule": "src/application/flasher-application.ts",
+      "symbol": "ApplicationDevicePort",
+      "symbolKind": "interface",
+      "members": [
+        {
+          "sourceMember": "listDevices",
+          "capabilityId": "device-list-devices",
+          "sourceSignature": "listDevices(): Promise<PortCandidate[]>"
+        },
+        {
+          "sourceMember": "snapshot",
+          "capabilityId": "device-snapshot",
+          "sourceSignature": "snapshot(): DeviceSnapshot"
+        },
+        {
+          "sourceMember": "connect",
+          "capabilityId": "device-connect",
+          "sourceSignature": "connect(candidate: PortCandidate): Promise<DeviceSnapshot>"
+        },
+        {
+          "sourceMember": "disconnect",
+          "capabilityId": "device-disconnect",
+          "sourceSignature": "disconnect(): Promise<void>"
+        },
+        {
+          "sourceMember": "recoverAfterManualPowerOff",
+          "capabilityId": "device-recover-after-power-off",
+          "sourceSignature": "recoverAfterManualPowerOff(confirmation: typeof MANUAL_POWER_OFF_CONFIRMATION): Promise<DeviceSnapshot>"
+        }
+      ]
+    },
+    {
+      "sourceModule": "src/application/flasher-application.ts",
+      "symbol": "ApplicationUpdaterPort",
+      "symbolKind": "interface",
+      "members": [
+        {
+          "sourceMember": "state",
+          "capabilityId": "updater-state",
+          "sourceSignature": "state(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "snapshot",
+          "capabilityId": "updater-snapshot",
+          "sourceSignature": "snapshot(): FirmwareUpdateState"
+        },
+        {
+          "sourceMember": "download",
+          "capabilityId": "updater-download",
+          "sourceSignature": "download(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "prepare",
+          "capabilityId": "updater-prepare",
+          "sourceSignature": "prepare(input: FirmwareUpdatePreflight): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "detectDfu",
+          "capabilityId": "updater-detect-dfu",
+          "sourceSignature": "detectDfu(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "refreshPrerequisites",
+          "capabilityId": "updater-refresh-prerequisites",
+          "sourceSignature": "refreshPrerequisites(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "flash",
+          "capabilityId": "updater-flash",
+          "sourceSignature": "flash(input: FirmwareFlashRequest): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "selectOemTarget",
+          "capabilityId": "updater-select-oem-target",
+          "sourceSignature": "selectOemTarget(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "admitLocalCustomTarget",
+          "capabilityId": "updater-admit-local-custom-target",
+          "sourceSignature": "admitLocalCustomTarget(target: LocalCustomFirmwareTarget, artifact: AdmittedFirmwareArtifact): Promise<FirmwareUpdateState>"
+        }
+      ]
+    },
+    {
+      "sourceModule": "src/application/flasher-application.ts",
+      "symbol": "NativeSafetyPromptPort",
+      "symbolKind": "interface",
+      "members": [
+        {
+          "sourceMember": "confirmFirmwareWrite",
+          "capabilityId": "prompt-confirm-firmware-write",
+          "sourceSignature": "confirmFirmwareWrite(input: FirmwareWritePrompt): Promise<boolean>"
+        },
+        {
+          "sourceMember": "confirmPhysicalPowerOff",
+          "capabilityId": "prompt-confirm-physical-power-off",
+          "sourceSignature": "confirmPhysicalPowerOff(): Promise<boolean>"
+        }
+      ]
+    },
+    {
+      "sourceModule": "src/application/flasher-application.ts",
+      "symbol": "LocalFirmwareTargetPickerPort",
+      "symbolKind": "interface",
+      "members": [
+        {
+          "sourceMember": "selectLocalFirmwareTarget",
+          "capabilityId": "picker-select-local-target",
+          "sourceSignature": "selectLocalFirmwareTarget(): Promise<LocalFirmwareTargetSelection | undefined>"
+        }
+      ]
+    },
+    {
+      "sourceModule": "src/application/flasher-application.ts",
+      "symbol": "ApplicationTimeAndIdentityPort",
+      "symbolKind": "interface",
+      "members": [
+        {
+          "sourceMember": "now",
+          "capabilityId": "clock-now",
+          "sourceSignature": "now(): Date"
+        },
+        {
+          "sourceMember": "randomUuid",
+          "capabilityId": "identity-random-uuid",
+          "sourceSignature": "randomUuid(): string"
+        }
+      ]
+    },
+    {
+      "sourceModule": "src/application/flasher-application.ts",
+      "symbol": "FlasherApplication",
+      "symbolKind": "class",
+      "members": [
+        {
+          "sourceMember": "criticalSection",
+          "capabilityId": "application-critical-section",
+          "sourceSignature": "get criticalSection(): ApplicationActivity['criticalSection']"
+        },
+        {
+          "sourceMember": "admission",
+          "capabilityId": "application-admission",
+          "sourceSignature": "get admission(): ApplicationActivity['admission']"
+        },
+        {
+          "sourceMember": "activeOperation",
+          "capabilityId": "application-active-operation",
+          "sourceSignature": "get activeOperation(): ApplicationOperation | undefined"
+        },
+        {
+          "sourceMember": "initialize",
+          "capabilityId": "application-initialize",
+          "sourceSignature": "initialize(): Promise<ApplicationSnapshot>"
+        },
+        {
+          "sourceMember": "snapshot",
+          "capabilityId": "application-snapshot",
+          "sourceSignature": "snapshot(): ApplicationSnapshot"
+        },
+        {
+          "sourceMember": "scanDevices",
+          "capabilityId": "application-scan-devices",
+          "sourceSignature": "scanDevices(): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "connectDevice",
+          "capabilityId": "application-connect-device",
+          "sourceSignature": "connectDevice(candidate: PortCandidate): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "disconnectDevice",
+          "capabilityId": "application-disconnect-device",
+          "sourceSignature": "disconnectDevice(): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "recoverDevice",
+          "capabilityId": "application-recover-device",
+          "sourceSignature": "recoverDevice(): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "selectOemTarget",
+          "capabilityId": "application-select-oem-target",
+          "sourceSignature": "selectOemTarget(): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "selectLocalFirmwareTarget",
+          "capabilityId": "application-select-local-firmware-target",
+          "sourceSignature": "selectLocalFirmwareTarget(): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "download",
+          "capabilityId": "application-download",
+          "sourceSignature": "download(): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "prepare",
+          "capabilityId": "application-prepare",
+          "sourceSignature": "prepare(input: FirmwareUpdatePreflight): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "detectDfu",
+          "capabilityId": "application-detect-dfu",
+          "sourceSignature": "detectDfu(): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "refreshPrerequisites",
+          "capabilityId": "application-refresh-prerequisites",
+          "sourceSignature": "refreshPrerequisites(): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "flash",
+          "capabilityId": "application-flash",
+          "sourceSignature": "flash(preparationId: string): Promise<ApplicationActionResult>"
+        },
+        {
+          "sourceMember": "requestShutdown",
+          "capabilityId": "application-request-shutdown",
+          "sourceSignature": "requestShutdown(): Promise<'safe' | 'blocked-critical'>"
+        },
+        {
+          "sourceMember": "releaseForWindowClose",
+          "capabilityId": "application-release-for-window-close",
+          "sourceSignature": "releaseForWindowClose(): Promise<'safe' | 'blocked-critical'>"
+        },
+        {
+          "sourceMember": "resumeAfterWindowOpen",
+          "capabilityId": "application-resume-after-window-open",
+          "sourceSignature": "resumeAfterWindowOpen(): void"
+        }
+      ]
+    }
+  ],
+  "sourceOfTruth": [
+    "src/application/application-contract.ts",
+    "src/application/flasher-application.ts",
+    "src/application/operation-gate.ts",
+    "src/core/contracts.ts"
+  ]
+}

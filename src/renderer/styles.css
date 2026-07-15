@@ -50,6 +50,12 @@ button:disabled { cursor: not-allowed; opacity: .46; }
 .connected-bar > div { display: flex; align-items: center; gap: 10px; }.connected-bar div div { display: flex; flex-direction: column; gap: 2px; }.connected-bar strong { font-size: 12px; }.connected-bar small { color: #88a798; font: 10px ui-monospace, monospace; }
 .verified-dot { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: #06120c; background: var(--green); font-size: 12px; font-weight: 900; }
 .quiet { background: transparent; color: #a8b6c5; border: 0; font-size: 11px; }
+.target-panel { padding: 22px; margin-bottom: 11px; }
+.target-panel .release-card { margin: 0 0 14px; }
+.target-panel .danger-note { margin-bottom: 14px; }
+.target-actions { display: flex; gap: 9px; }
+.target-actions .secondary { flex: 1; }
+.target-boundary-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .workflow-panel { min-height: 490px; }
 .route { height: 70px; display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); padding: 0 36px; }
 .route > div { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; color: #6f7987; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; }
@@ -73,4 +79,4 @@ button:disabled { cursor: not-allowed; opacity: .46; }
 .complete-card { border: 1px solid #2b6a4e; background: #0d2118; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }.complete-card strong { color: #8ce0b7; }.complete-card span { color: var(--muted); font: 9px ui-monospace, monospace; }
 .stage-danger .stage-title > span { background: #32171b; color: #ff8b93; }
 footer { color: #55606e; display: flex; justify-content: space-between; padding: 12px 3px 0; font: 8px ui-monospace, monospace; letter-spacing: .1em; }
-@media (max-width: 800px) { body { min-width: 0; }.app-shell { width: calc(100vw - 24px); }.checks { grid-template-columns: 1fr; }.route { padding: 0 12px; }.device-card { grid-template-columns: 40px 1fr; }.device-card button, .device-card em { grid-column: 1 / -1; }.identity-proof { grid-template-columns: 1fr; } }
+@media (max-width: 800px) { body { min-width: 0; }.app-shell { width: calc(100vw - 24px); }.checks { grid-template-columns: 1fr; }.route { padding: 0 12px; }.device-card { grid-template-columns: 40px 1fr; }.device-card button, .device-card em { grid-column: 1 / -1; }.identity-proof { grid-template-columns: 1fr; }.target-actions { flex-direction: column; } }

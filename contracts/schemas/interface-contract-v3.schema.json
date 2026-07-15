@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://physicistjohn.github.io/tinysa-flasher/contracts/interface-contract-v3.schema.json",
+  "title": "TinySA Flasher decomposable interface contract envelope v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "$id",
+    "contractId",
+    "contractVersion",
+    "envelopeVersion",
+    "previousContract",
+    "kind",
+    "owner",
+    "provider",
+    "consumers",
+    "compatibility",
+    "typeDefinitions",
+    "invocations",
+    "structuralCapabilities",
+    "compositions",
+    "sourceOfTruth"
+  ],
+  "properties": {
+    "$schema": { "const": "../schemas/interface-contract-v3.schema.json" },
+    "$id": {
+      "type": "string",
+      "pattern": "^https://physicistjohn\\.github\\.io/tinysa-flasher/contracts/interfaces/[a-z0-9-]+-v3\\.json$"
+    },
+    "contractId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "contractVersion": { "const": 3 },
+    "envelopeVersion": { "const": 3 },
+    "previousContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "contractVersion", "sha256"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^\\./[a-z0-9-]+-v[1-9][0-9]*\\.json$" },
+        "contractVersion": { "type": "integer", "minimum": 1, "maximum": 2 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "kind": {
+      "enum": [
+        "ipc",
+        "domain-service",
+        "transport",
+        "external-service",
+        "persistence",
+        "configuration",
+        "migration",
+        "runtime-port"
+      ]
+    },
+    "owner": { "type": "string", "minLength": 1 },
+    "provider": { "type": "string", "minLength": 1 },
+    "consumers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "compatibility": { "enum": ["exact-version", "same-major"] },
+    "typeDefinitions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/typeDefinition" }
+    },
+    "invocations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/invocation" }
+    },
+    "structuralCapabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/structuralCapability" }
+    },
+    "compositions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/composition" }
+    },
+    "sourceOfTruth": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^(?:src/.+\\.tsx?|contracts/.+\\.json)$" }
+    }
+  },
+  "$defs": {
+    "typeDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceModule"],
+      "properties": {
+        "sourceModule": { "type": "string", "minLength": 1 },
+        "runtimeValidator": { "type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$" },
+        "runtimeContract": { "type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$" },
+        "valueExport": { "type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$" },
+        "typeExport": { "type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$" },
+        "sourceSignature": { "type": "string", "minLength": 1 },
+        "platformType": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["typeExport"] },
+          "then": { "required": ["sourceSignature"] }
+        }
+      ],
+      "anyOf": [
+        { "required": ["runtimeValidator"] },
+        { "required": ["runtimeContract"] },
+        { "required": ["valueExport"] },
+        { "required": ["typeExport"] },
+        { "required": ["platformType"] }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "retryability", "description"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "retryability": { "enum": ["never", "safe", "conditional", "manual-inspection"] },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^tests/.+\\.test\\.tsx?$" }
+    },
+    "invocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilityId",
+        "sourceModule",
+        "symbol",
+        "symbolKind",
+        "sourceMember",
+        "sourceSignature",
+        "argumentsSignature",
+        "returnSignature",
+        "inputDescription",
+        "outputDescription",
+        "errors",
+        "invariants",
+        "validationBoundary",
+        "tests"
+      ],
+      "properties": {
+        "capabilityId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "channel": { "type": "string", "pattern": "^flasher:[a-z0-9:-]+$" },
+        "sourceModule": { "type": "string", "pattern": "^src/.+\\.tsx?$" },
+        "symbol": { "type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$" },
+        "symbolKind": { "enum": ["interface", "class", "function", "ipc-registry"] },
+        "sourceMember": { "type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$" },
+        "sourceSignature": { "type": "string", "minLength": 1 },
+        "argumentsSignature": { "type": "string", "pattern": "^readonly \\[.*\\]$" },
+        "returnSignature": { "type": "string", "minLength": 1 },
+        "inputDescription": { "type": "string", "minLength": 1 },
+        "outputDescription": { "type": "string", "minLength": 1 },
+        "errors": { "type": "array", "items": { "$ref": "#/$defs/error" } },
+        "invariants": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "validationBoundary": { "type": "string", "minLength": 1 },
+        "tests": { "$ref": "#/$defs/tests" }
+      }
+    },
+    "structuralCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilityId",
+        "semanticInputRef",
+        "semanticOutputRef",
+        "inputDescription",
+        "outputDescription",
+        "errors",
+        "invariants",
+        "validationBoundary",
+        "tests"
+      ],
+      "properties": {
+        "capabilityId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "semanticInputRef": { "type": "string", "minLength": 1 },
+        "semanticOutputRef": { "type": "string", "minLength": 1 },
+        "inputDescription": { "type": "string", "minLength": 1 },
+        "outputDescription": { "type": "string", "minLength": 1 },
+        "errors": { "type": "array", "items": { "$ref": "#/$defs/error" } },
+        "invariants": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "validationBoundary": { "type": "string", "minLength": 1 },
+        "tests": { "$ref": "#/$defs/tests" }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compositionId",
+        "sourceModule",
+        "symbol",
+        "extends",
+        "validationBoundary",
+        "tests"
+      ],
+      "properties": {
+        "compositionId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "sourceModule": { "type": "string", "pattern": "^src/.+\\.tsx?$" },
+        "symbol": { "type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$" },
+        "extends": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "validationBoundary": { "type": "string", "minLength": 1 },
+        "tests": { "$ref": "#/$defs/tests" }
+      }
+    }
+  }
+}

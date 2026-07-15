@@ -1,18 +1,34 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { FirmwareUpdatePreflight, PortCandidate } from '../core/contracts.js';
-import { IPC, type TinySaFlasherApi } from './ipc-contract.js';
+import {
+  IPC_CONTRACTS,
+  parseIpcRequest,
+  unwrapIpcReply,
+  type IpcOperation,
+  type IpcOutput,
+  type IpcRequest,
+  type TinySaFlasherApi,
+} from './ipc-contract.js';
 
-const api: TinySaFlasherApi = {
-  listDevices: () => ipcRenderer.invoke(IPC.listDevices),
-  deviceState: () => ipcRenderer.invoke(IPC.deviceState),
-  connectDevice: (candidate: PortCandidate) => ipcRenderer.invoke(IPC.connectDevice, candidate),
-  disconnectDevice: () => ipcRenderer.invoke(IPC.disconnectDevice),
-  updateState: () => ipcRenderer.invoke(IPC.updateState),
-  download: () => ipcRenderer.invoke(IPC.download),
-  prepare: (preflight: FirmwareUpdatePreflight) => ipcRenderer.invoke(IPC.prepare, preflight),
-  detectDfu: () => ipcRenderer.invoke(IPC.detectDfu),
-  refreshPrerequisites: () => ipcRenderer.invoke(IPC.refreshPrerequisites),
-  flash: (preparationId: string) => ipcRenderer.invoke(IPC.flash, preparationId),
-};
+async function invokeContract<K extends IpcOperation>(operation: K, ...args: IpcRequest<K>): Promise<IpcOutput<K>> {
+  const request = parseIpcRequest(operation, args) as readonly unknown[];
+  const wireValue: unknown = await ipcRenderer.invoke(IPC_CONTRACTS[operation].channel, ...request);
+  return unwrapIpcReply(operation, wireValue);
+}
 
-contextBridge.exposeInMainWorld('tinySaFlasher', Object.freeze(api));
+const api = Object.freeze({
+  capabilities: () => invokeContract('capabilities'),
+  snapshot: () => invokeContract('snapshot'),
+  scanDevices: () => invokeContract('scanDevices'),
+  connectDevice: (...args: IpcRequest<'connectDevice'>) => invokeContract('connectDevice', ...args),
+  disconnectDevice: () => invokeContract('disconnectDevice'),
+  recoverDevice: () => invokeContract('recoverDevice'),
+  selectOemTarget: () => invokeContract('selectOemTarget'),
+  selectLocalFirmwareTarget: () => invokeContract('selectLocalFirmwareTarget'),
+  download: () => invokeContract('download'),
+  prepare: (...args: IpcRequest<'prepare'>) => invokeContract('prepare', ...args),
+  detectDfu: () => invokeContract('detectDfu'),
+  refreshPrerequisites: () => invokeContract('refreshPrerequisites'),
+  flash: (...args: IpcRequest<'flash'>) => invokeContract('flash', ...args),
+}) satisfies TinySaFlasherApi;
+
+contextBridge.exposeInMainWorld('tinySaFlasher', api);

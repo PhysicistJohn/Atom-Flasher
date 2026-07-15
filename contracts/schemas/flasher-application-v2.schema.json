@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://physicistjohn.github.io/tinysa-flasher/contracts/flasher-application-v2.schema.json",
+  "title": "TinySA Flasher public application contract v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "$id",
+    "contractId",
+    "contractVersion",
+    "applicationContractVersion",
+    "deviceContractVersion",
+    "versionSemantics",
+    "owner",
+    "usbOwnership",
+    "releaseManifest",
+    "release",
+    "targetSelection",
+    "safetyInvariants",
+    "externalTrustBoundaries"
+  ],
+  "properties": {
+    "$schema": { "const": "./schemas/flasher-application-v2.schema.json" },
+    "$id": { "const": "https://physicistjohn.github.io/tinysa-flasher/contracts/flasher-application-v2.json" },
+    "contractId": { "const": "tinysa-flasher-application" },
+    "contractVersion": { "const": 2 },
+    "applicationContractVersion": { "const": 2 },
+    "deviceContractVersion": { "const": 2 },
+    "versionSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contractVersion", "applicationContractVersion", "deviceContractVersion", "releaseVersioning"],
+      "properties": {
+        "contractVersion": { "const": "Version of this JSON document shape and interpretation; increment for an incompatible serialization or semantic change." },
+        "applicationContractVersion": { "const": "Version of the externally observable updater ownership, workflow, and safety guarantees; increment when a consumer must change integration behavior." },
+        "deviceContractVersion": { "const": "Version of physical CDC admission, preflight, DFU write, and post-write verification assumptions and guarantees; increment when supported device behavior changes incompatibly." },
+        "releaseVersioning": { "const": "OEM firmware releases are independently versioned immutable manifests; changing only the selected OEM release does not increment the three contract versions." }
+      }
+    },
+    "owner": { "const": "firmware-update-control-plane" },
+    "usbOwnership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["atomizerOperationalSession", "flasherUpdateSession", "mutualExclusion"],
+      "properties": {
+        "atomizerOperationalSession": { "const": "Atomizer exclusively owns CDC analyzer/generator operation outside a firmware-update session." },
+        "flasherUpdateSession": { "const": "TinySA Flasher exclusively owns CDC discovery/preflight, DFU admission/write, and CDC post-write verification for the complete firmware-update session." },
+        "mutualExclusion": { "const": "Atomizer and TinySA Flasher must never access the same physical device simultaneously; close or disconnect Atomizer before starting an update session." }
+      }
+    },
+    "releaseManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "$id", "sha256", "canonical"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^releases/[a-z0-9-]+-v1\\.json$" },
+        "$id": { "type": "string", "pattern": "^https://physicistjohn\\.github\\.io/tinysa-flasher/contracts/releases/[a-z0-9-]+-v1\\.json$" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "canonical": { "const": true }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product", "version", "revision", "sourceCommit", "publishedAt", "downloadUrl", "sha256", "sizeBytes", "transportIntegrity"],
+      "properties": {
+        "product": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "pattern": "^[a-f0-9]{7,40}$" },
+        "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "publishedAt": { "type": "string", "format": "date-time" },
+        "downloadUrl": { "type": "string", "pattern": "^https?://" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "sizeBytes": { "type": "integer", "minimum": 1 },
+        "transportIntegrity": { "const": "pinned-sha256" }
+      }
+    },
+    "targetSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["oem", "localCustom", "rendererPathPolicy", "targetChangePolicy", "customQualificationProof", "customObservationPolicy", "descriptorWriteBoundary"],
+      "properties": {
+        "oem": { "const": "The canonical immutable OEM release remains the default target and is fetched over an untrusted transport then admitted by exact size and SHA-256." },
+        "localCustom": { "const": "A native-main file picker may admit a manifest-v1 ZS407 build and adjacent BIN into owner-only content-addressed storage after strict provenance, vector, embedded identity, size, and SHA-256 validation." },
+        "rendererPathPolicy": { "const": "The renderer can request native target selection but cannot supply or observe a filesystem path." },
+        "targetChangePolicy": { "const": "A target cannot change after preparation; a recovered prepared custom target must be rebound from its deterministic app-owned paths before write." }
+        ,"customQualificationProof": { "const": "qualificationEvidenceSha256 is required exactly for qualified local-custom targets and forbidden for unqualified targets; native confirmation displays the custom manifest SHA-256." }
+        ,"customObservationPolicy": { "const": "Ordinary CDC observation of matching custom version/revision labels cannot prove exact target bytes or provenance and remains custom-current/install-custom; only a just-completed durable write transaction may retain exact-target completion evidence." }
+        ,"descriptorWriteBoundary": { "const": "The write path opens and verifies one regular-file descriptor, asserts that same open file description is stable immediately before spawn, and inherits it into dfu-util without resolving a firmware pathname." }
+      }
+    },
+    "safetyInvariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physicalCdcAdmission",
+        "rfOutputDuringAdmission",
+        "artifactAdmission",
+        "dfuUtility",
+        "dfuAdmission",
+        "dfuToctou",
+        "writeBoundary",
+        "repeatWritePolicy",
+        "processConcurrency",
+        "postWriteVerification",
+        "legacySafetyEvidence",
+        "automation"
+      ],
+      "properties": {
+        "physicalCdcAdmission": { "type": "string", "minLength": 1 },
+        "rfOutputDuringAdmission": { "type": "string", "minLength": 1 },
+        "artifactAdmission": { "type": "string", "minLength": 1 },
+        "dfuUtility": { "type": "string", "minLength": 1 },
+        "dfuAdmission": { "type": "string", "minLength": 1 },
+        "dfuToctou": { "type": "string", "minLength": 1 },
+        "writeBoundary": { "type": "string", "minLength": 1 },
+        "repeatWritePolicy": { "type": "string", "minLength": 1 },
+        "processConcurrency": { "type": "string", "minLength": 1 },
+        "postWriteVerification": { "type": "string", "minLength": 1 },
+        "legacySafetyEvidence": { "type": "string", "minLength": 1 },
+        "automation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "externalTrustBoundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dfuUtil", "oemHttpHost", "localManifestAndBinary"],
+      "properties": {
+        "dfuUtil": { "type": "string", "minLength": 1 },
+        "oemHttpHost": { "type": "string", "minLength": 1 },
+        "localManifestAndBinary": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

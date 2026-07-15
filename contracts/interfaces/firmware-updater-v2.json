@@ -1,0 +1,334 @@
+{
+  "$schema": "../schemas/interface-contract-v2.schema.json",
+  "contractId": "tinysa-flasher-firmware-updater",
+  "contractVersion": 2,
+  "kind": "domain-service",
+  "owner": "firmware-update-control-plane",
+  "provider": "FirmwareUpdater",
+  "consumers": [
+    "FlasherApplication",
+    "transaction tests"
+  ],
+  "compatibility": "exact-version",
+  "typeDefinitions": {
+    "FirmwareUpdater": {
+      "sourceModule": "src/core/firmware-updater.ts",
+      "typeExport": "FirmwareUpdater",
+      "sourceSignature": "class FirmwareUpdater { state(): Promise<FirmwareUpdateState>; snapshot(): FirmwareUpdateState; refreshPrerequisites(): Promise<FirmwareUpdateState>; selectOemTarget(): Promise<FirmwareUpdateState>; admitLocalCustomTarget(targetValue: LocalCustomFirmwareTarget, artifact: AdmittedFirmwareArtifact): Promise<FirmwareUpdateState>; download(): Promise<FirmwareUpdateState>; prepare(input: FirmwareUpdatePreflight): Promise<FirmwareUpdateState>; detectDfu(): Promise<FirmwareUpdateState>; flash(input: FirmwareFlashRequest): Promise<FirmwareUpdateState> }"
+    },
+    "FirmwareUpdateState": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "firmwareUpdateStateSchema",
+      "typeExport": "FirmwareUpdateState",
+      "sourceSignature": "export type FirmwareUpdateState = z.infer<typeof firmwareUpdateStateSchema>;"
+    },
+    "FirmwareUpdatePreflight": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "firmwareUpdatePreflightSchema",
+      "typeExport": "FirmwareUpdatePreflight",
+      "sourceSignature": "export type FirmwareUpdatePreflight = z.infer<typeof firmwareUpdatePreflightSchema>;"
+    },
+    "FirmwareFlashRequest": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "firmwareFlashRequestSchema",
+      "typeExport": "FirmwareFlashRequest",
+      "sourceSignature": "export type FirmwareFlashRequest = z.infer<typeof firmwareFlashRequestSchema>;"
+    },
+    "LocalCustomFirmwareTarget": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "localCustomFirmwareTargetSchema",
+      "typeExport": "LocalCustomFirmwareTarget",
+      "sourceSignature": "export type LocalCustomFirmwareTarget = z.infer<typeof localCustomFirmwareTargetSchema>;"
+    },
+    "AdmittedFirmwareArtifact": {
+      "sourceModule": "src/core/firmware-updater.ts",
+      "typeExport": "AdmittedFirmwareArtifact",
+      "sourceSignature": "export interface AdmittedFirmwareArtifact { readonly targetId: string; openVerified(): Promise<VerifiedFirmwareArtifact>; }"
+    },
+    "VerifiedFirmwareArtifact": {
+      "sourceModule": "src/core/firmware-artifact.ts",
+      "typeExport": "VerifiedFirmwareArtifact",
+      "sourceSignature": "export interface VerifiedFirmwareArtifact { readonly descriptor: number; readonly bytes: Uint8Array; assertStable(): Promise<void>; close(): Promise<void>; }"
+    }
+  },
+  "capabilities": [
+    {
+      "capabilityId": "recover-and-synchronize-state",
+      "input": {
+        "typeRef": "FirmwareUpdater",
+        "description": "A composed updater whose durable evidence has not yet been recovered."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Recovered legal v1/v2 history projected into current v2 state and synchronized with the device."
+      },
+      "errors": [
+        {
+          "code": "EVIDENCE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "Evidence is conflicting, malformed, orphaned, locked, or lacks a process-local custom artifact capability."
+        }
+      ],
+      "invariants": [
+        "Started, completed-unverified, and indeterminate sessions never become writable.",
+        "Historical v1 OEM evidence remains readable but current writes persist v2 target identity.",
+        "A recovered prepared local-custom target remains fail-closed until the exact openVerified descriptor capability is rebound; successful rebind durably demotes to awaiting-dfu, clears prior DFU identity, and requires fresh detection."
+      ]
+    },
+    {
+      "capabilityId": "snapshot",
+      "input": {
+        "typeRef": "FirmwareUpdater",
+        "description": "A recovered updater."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Current strict cloned state without I/O."
+      },
+      "errors": [
+        {
+          "code": "INVALID_RUNTIME_VALUE",
+          "retryability": "never",
+          "description": "Internal state violates the runtime schema."
+        }
+      ],
+      "invariants": [
+        "Callers cannot mutate updater-owned state."
+      ]
+    },
+    {
+      "capabilityId": "refresh-prerequisites",
+      "input": {
+        "typeRef": "FirmwareUpdater",
+        "description": "A recovered updater, optionally with a prepared session."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "State with freshly inspected dfu-util availability."
+      },
+      "errors": [
+        {
+          "code": "DFU_TOOL_UNAVAILABLE",
+          "retryability": "conditional",
+          "description": "No exact dfu-util 0.11 prerequisite is available."
+        }
+      ],
+      "invariants": [
+        "Inspection is read-only and persists ready-state demotion when needed."
+      ]
+    },
+    {
+      "capabilityId": "select-oem-target",
+      "input": {
+        "typeRef": "FirmwareUpdater",
+        "description": "An unprepared updater whose write disposition is not-started."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "State targeting the canonical OEM release."
+      },
+      "errors": [
+        {
+          "code": "UPDATE_PRECONDITION_FAILED",
+          "retryability": "conditional",
+          "description": "Preparation or a write boundary locks target selection."
+        }
+      ],
+      "invariants": [
+        "Target selection discards artifacts belonging to another target."
+      ]
+    },
+    {
+      "capabilityId": "admit-local-custom-target",
+      "input": {
+        "typeRef": "LocalCustomFirmwareTarget",
+        "description": "A strict manifest-derived target plus its bound AdmittedFirmwareArtifact capability."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "State with a reverified app-owned custom target artifact."
+      },
+      "errors": [
+        {
+          "code": "ARTIFACT_REJECTED",
+          "retryability": "never",
+          "description": "Target, artifact binding, size, digest, or manifest proof fails."
+        }
+      ],
+      "invariants": [
+        "AdmittedFirmwareArtifact targetId equals the selected target and openVerified returns reverified bytes bound to one open descriptor.",
+        "Qualified targets require qualificationEvidenceSha256; unqualified targets forbid it.",
+        "Custom target selection never uses the OEM network fetch path."
+      ]
+    },
+    {
+      "capabilityId": "download-oem",
+      "input": {
+        "typeRef": "FirmwareUpdater",
+        "description": "An eligible updater with the OEM target selected."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Verified OEM artifact state."
+      },
+      "errors": [
+        {
+          "code": "FIRMWARE_SOURCE_FAILED",
+          "retryability": "safe",
+          "description": "Transport, bounded read, digest, or create-once install failed."
+        }
+      ],
+      "invariants": [
+        "Download rejects local-custom targets."
+      ]
+    },
+    {
+      "capabilityId": "prepare-target",
+      "input": {
+        "typeRef": "FirmwareUpdatePreflight",
+        "description": "Strict physical and human attestations for the selected target."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Durably journaled v2 preparation and safely disconnected CDC session."
+      },
+      "errors": [
+        {
+          "code": "PREFLIGHT_FAILED",
+          "retryability": "conditional",
+          "description": "Observation, artifact reread, persistence, or safe disconnect failed."
+        }
+      ],
+      "invariants": [
+        "Target ID/SHA, battery, device ID, USB continuity, screen hash, image hash, and attestations bind to one preparation UUID.",
+        "Target selection is immutable after preparation."
+      ]
+    },
+    {
+      "capabilityId": "detect-dfu",
+      "input": {
+        "typeRef": "FirmwareUpdater",
+        "description": "A durably prepared awaiting-DFU updater."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Ready-to-flash only with one canonical DFU identity."
+      },
+      "errors": [
+        {
+          "code": "DFU_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "Tool or physical DFU target admission failed."
+        }
+      ],
+      "invariants": [
+        "Detected identity fingerprint is persisted before confirmation."
+      ]
+    },
+    {
+      "capabilityId": "flash-target",
+      "input": {
+        "typeRef": "FirmwareFlashRequest",
+        "description": "Exact preparation UUID plus target-kind-specific native-only confirmation literal."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Post-reboot verified completion or fail-closed state."
+      },
+      "errors": [
+        {
+          "code": "WRITE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "The write boundary was crossed without complete verification."
+        }
+      ],
+      "invariants": [
+        "Write owner lock and v2 started journal are durable before dfu-util spawn.",
+        "Completion is archived only after exact device ID and selected target version/revision/qualification verification.",
+        "Ordinary observation of custom version/revision cannot prove exact custom target content; only the just-completed durable transaction may retain exact-target completion evidence."
+      ]
+    },
+    {
+      "capabilityId": "admitted-artifact-capability",
+      "input": {
+        "typeRef": "AdmittedFirmwareArtifact",
+        "description": "A target-ID-bound app-owned artifact capability."
+      },
+      "output": {
+        "typeRef": "VerifiedFirmwareArtifact",
+        "description": "Fresh verified bytes and the exact open descriptor inherited by dfu-util."
+      },
+      "errors": [
+        {
+          "code": "ARTIFACT_REJECTED",
+          "retryability": "never",
+          "description": "Descriptor metadata or fresh bytes no longer match the selected target."
+        }
+      ],
+      "invariants": [
+        "No firmware pathname is persisted or passed to dfu-util; assertStable runs immediately before spawn and close runs after child exit or failure."
+      ]
+    }
+  ],
+  "sourceProjections": [
+    {
+      "sourceModule": "src/core/firmware-updater.ts",
+      "symbol": "FirmwareUpdater",
+      "symbolKind": "class",
+      "members": [
+        {
+          "sourceMember": "state",
+          "capabilityId": "recover-and-synchronize-state",
+          "sourceSignature": "state(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "snapshot",
+          "capabilityId": "snapshot",
+          "sourceSignature": "snapshot(): FirmwareUpdateState"
+        },
+        {
+          "sourceMember": "refreshPrerequisites",
+          "capabilityId": "refresh-prerequisites",
+          "sourceSignature": "refreshPrerequisites(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "selectOemTarget",
+          "capabilityId": "select-oem-target",
+          "sourceSignature": "selectOemTarget(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "admitLocalCustomTarget",
+          "capabilityId": "admit-local-custom-target",
+          "sourceSignature": "admitLocalCustomTarget(targetValue: LocalCustomFirmwareTarget, artifact: AdmittedFirmwareArtifact): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "download",
+          "capabilityId": "download-oem",
+          "sourceSignature": "download(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "prepare",
+          "capabilityId": "prepare-target",
+          "sourceSignature": "prepare(input: FirmwareUpdatePreflight): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "detectDfu",
+          "capabilityId": "detect-dfu",
+          "sourceSignature": "detectDfu(): Promise<FirmwareUpdateState>"
+        },
+        {
+          "sourceMember": "flash",
+          "capabilityId": "flash-target",
+          "sourceSignature": "flash(input: FirmwareFlashRequest): Promise<FirmwareUpdateState>"
+        }
+      ]
+    }
+  ],
+  "sourceOfTruth": [
+    "src/core/firmware-updater.ts",
+    "src/core/firmware-artifact.ts",
+    "src/core/contracts.ts",
+    "src/core/persistence/firmware-transaction-store.ts",
+    "src/core/persistence/evidence-schemas-v2.ts"
+  ]
+}

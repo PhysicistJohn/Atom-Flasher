@@ -5,6 +5,8 @@ const decoder = new TextDecoder('utf-8', { fatal: true });
 export interface ByteTransport {
   open(path: string): Promise<void>;
   close(): Promise<void>;
+  /** Discards bytes received before the next command write begins. */
+  discardInput(): Promise<void>;
   write(bytes: Uint8Array): Promise<void>;
   onBytes(listener: (bytes: Uint8Array) => void): () => void;
   onEvent(listener: (event: TransportEvent) => void): () => void;
@@ -30,10 +32,27 @@ export class CommandScheduler {
   #buffer = new Uint8Array();
   #length = 0;
   #fault: Error | undefined;
-  #unsubscribe: () => void;
+  #responseWindowOpen = false;
+  #unsubscribeBytes: () => void;
+  #unsubscribeEvents: () => void;
 
-  constructor(private readonly transport: ByteTransport, private readonly maximumBufferedBytes = 4 * 1024 * 1024) {
-    this.#unsubscribe = transport.onBytes((bytes) => this.#receive(bytes));
+  constructor(
+    private readonly transport: ByteTransport,
+    private readonly maximumBufferedBytes = 4 * 1024 * 1024,
+    private readonly maximumQueuedCommands = 32,
+  ) {
+    if (!Number.isSafeInteger(maximumBufferedBytes) || maximumBufferedBytes <= 0) {
+      throw new RangeError('maximumBufferedBytes must be a positive safe integer');
+    }
+    if (!Number.isSafeInteger(maximumQueuedCommands) || maximumQueuedCommands <= 0) {
+      throw new RangeError('maximumQueuedCommands must be a positive safe integer');
+    }
+    this.#unsubscribeBytes = transport.onBytes((bytes) => this.#receive(bytes));
+    this.#unsubscribeEvents = transport.onEvent((event) => {
+      if (event.type === 'opened') return;
+      const detail = event.type === 'error' ? event.error.message : event.reason ?? 'transport closed';
+      this.#fail(new Error(`Serial transport terminated: ${detail}`, { cause: event.type === 'error' ? event.error : undefined }));
+    });
   }
 
   execute(command: string, timeoutMs = 10_000): Promise<string> {
@@ -47,14 +66,19 @@ export class CommandScheduler {
 
   dispose(): void {
     this.#fail(new Error('Command scheduler disposed'));
-    this.#unsubscribe();
+    this.#unsubscribeBytes();
+    this.#unsubscribeEvents();
   }
 
   #enqueue<T extends string | Uint8Array>(command: string, timeoutMs: number, payloadBytes?: number): Promise<T> {
     if (!command || new TextEncoder().encode(command).length > 47 || !/^[\x20-\x7e]+$/.test(command)) {
       return Promise.reject(new Error('Command must contain 1..47 printable ASCII characters'));
     }
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647) {
+      return Promise.reject(new RangeError('timeoutMs must be an integer from 1 through 2147483647'));
+    }
     if (this.#fault) return Promise.reject(this.#fault);
+    if (this.#queue.length >= this.maximumQueuedCommands) return Promise.reject(new Error(`Command queue is limited to ${this.maximumQueuedCommands} waiting commands`));
     return new Promise<T>((resolve, reject) => {
       this.#queue.push({ command, timeoutMs, ...(payloadBytes === undefined ? {} : { payloadBytes }), resolve: resolve as (value: string | Uint8Array) => void, reject });
       void this.#startNext();
@@ -66,9 +90,17 @@ export class CommandScheduler {
     const active = this.#queue.shift();
     if (!active) return;
     this.#active = active;
+    this.#responseWindowOpen = false;
     this.#timer = setTimeout(() => this.#fail(new Error(`Command timed out and the serial protocol is no longer synchronized: ${active.command}`)), active.timeoutMs);
     try {
+      // Bytes from an earlier command must never prove that a newly issued
+      // safety command succeeded. Clear the host input queue, then open the
+      // response window immediately before writing the new command.
+      await this.transport.discardInput();
+      if (this.#fault || this.#active !== active) return;
+      this.#responseWindowOpen = true;
       await this.transport.write(new TextEncoder().encode(`${active.command}\r`));
+      if (this.#fault || this.#active !== active) return;
       this.#process();
     } catch (value) {
       this.#fail(new Error(`Serial write failed for ${active.command}: ${message(value)}`, { cause: value }));
@@ -77,6 +109,10 @@ export class CommandScheduler {
 
   #receive(bytes: Uint8Array): void {
     if (this.#fault) return;
+    if (!this.#active || !this.#responseWindowOpen) {
+      this.#fail(new Error('Unsolicited serial bytes arrived outside the active command response window'));
+      return;
+    }
     try {
       const required = this.#length + bytes.length;
       if (required > this.maximumBufferedBytes) throw new Error(`Serial response exceeded ${this.maximumBufferedBytes} bytes`);
@@ -101,11 +137,15 @@ export class CommandScheduler {
       ? extractTextResponse(bytes, active.command)
       : extractFixedBinaryResponse(bytes, active.command, active.payloadBytes);
     if (!parsed) return;
+    const remaining = this.#length - parsed.consumedBytes;
+    if (remaining > 0) {
+      this.#fail(new Error(`Command ${active.command} returned trailing bytes after the exact shell prompt`));
+      return;
+    }
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = undefined;
-    const remaining = this.#length - parsed.consumedBytes;
-    if (remaining > 0) this.#buffer.copyWithin(0, parsed.consumedBytes, this.#length);
-    this.#length = remaining;
+    this.#length = 0;
+    this.#responseWindowOpen = false;
     this.#active = undefined;
     active.resolve(parsed.value);
     void this.#startNext();
@@ -116,6 +156,7 @@ export class CommandScheduler {
     this.#fault = error;
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = undefined;
+    this.#responseWindowOpen = false;
     this.#active?.reject(error);
     this.#active = undefined;
     for (const pending of this.#queue.splice(0)) pending.reject(error);

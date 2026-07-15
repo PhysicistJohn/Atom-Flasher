@@ -1,0 +1,49 @@
+name: CI
+
+"on":
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check (Node 22.23.1, npm 10.9.8)
+    runs-on: macos-15
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Pin npm
+        run: npm install --global npm@10.9.8
+
+      - name: Verify toolchain
+        shell: bash
+        run: |
+          test "$(node --version)" = "v$(cat .node-version)"
+          test "$(npm --version)" = "10.9.8"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Full check, ad-hoc package, checksum, and isolated runtime smoke
+        run: npm run package:mac
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=low

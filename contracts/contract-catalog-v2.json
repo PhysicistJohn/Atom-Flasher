@@ -1,0 +1,20 @@
+{
+  "$schema": "./schemas/contract-catalog-v2.schema.json",
+  "$id": "https://physicistjohn.github.io/tinysa-flasher/contracts/contract-catalog-v2.json",
+  "contractId": "tinysa-flasher-contract-catalog",
+  "contractVersion": 2,
+  "applicationContract": "./flasher-application-v2.json",
+  "interfaces": [
+    { "contractId": "tinysa-flasher-renderer-ipc", "contractVersion": 2, "path": "./interfaces/renderer-ipc-v2.json", "sha256": "f796bddf7aab9fa19c419c11f79697716fe17c5856dc0e4f70c07a2f91dd9545", "required": true },
+    { "contractId": "tinysa-flasher-ipc-adapter", "contractVersion": 1, "path": "./interfaces/ipc-adapter-v1.json", "sha256": "640019bed1f07b02ba68633e4506d6e278c00b50daa0dd7b0b811a2ddc97d9bd", "required": true },
+    { "contractId": "tinysa-flasher-application-facade", "contractVersion": 1, "path": "./interfaces/application-facade-v1.json", "sha256": "a0a1e1d230cbe8b727210b644b8eca17923197920741586043ecac7b35079050", "required": true },
+    { "contractId": "tinysa-flasher-device-cdc", "contractVersion": 2, "path": "./interfaces/device-cdc-v2.json", "sha256": "33e8d266a4bc242ae0d1be2801090aad4a8b198017c42e34aafeddcb94f41196", "required": true },
+    { "contractId": "tinysa-flasher-firmware-updater", "contractVersion": 2, "path": "./interfaces/firmware-updater-v2.json", "sha256": "4f62c236c028f0e39e3e609768104007845749fe9acfe2bf32a7139101135e6f", "required": true },
+    { "contractId": "tinysa-flasher-runtime-ports", "contractVersion": 2, "path": "./interfaces/runtime-ports-v2.json", "sha256": "0ed750bf4126d1be5e0fde5d1c53d48124b85347c87dac07d421c21d03c05925", "required": true },
+    { "contractId": "tinysa-flasher-safety-evidence", "contractVersion": 2, "path": "./interfaces/safety-evidence-v2.json", "sha256": "4daf52455901bf509036747a9f0b69cba2a87b9cf1a4d610c100abea15535dd6", "required": true },
+    { "contractId": "tinysa-flasher-local-firmware-build", "contractVersion": 1, "path": "./interfaces/local-firmware-build-v1.json", "sha256": "a5a227a935365805b902e61a70f31620492fd4f7eee5f1fdf1272e9bce7088af", "required": true },
+    { "contractId": "tinysa-flasher-local-firmware-picker", "contractVersion": 1, "path": "./interfaces/local-firmware-picker-v1.json", "sha256": "1f934e51c10c8f98e01eb5b79a705bed7ca38a134f9f78dc56014a620158d02e", "required": true },
+    { "contractId": "tinysa-flasher-legacy-migration", "contractVersion": 1, "path": "./interfaces/legacy-migration-v1.json", "sha256": "fcfa586d298d7633991ea4653d3693689137cbb4243908aad2f1b7d7c5f049c5", "required": true },
+    { "contractId": "tinysa-flasher-application-config", "contractVersion": 1, "path": "./interfaces/application-config-v1.json", "sha256": "388409d8df4e71953b8dae06e0e9a22cad2bb556f2aca6fa5b2dc3f7a26afa3e", "required": true }
+  ]
+}

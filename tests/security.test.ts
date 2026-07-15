@@ -11,10 +11,11 @@ describe('renderer trust boundary', () => {
   });
 
   it('requires exact production URL or exact development origin', () => {
-    expect(isTrustedRendererUrl('http://localhost:5173/page', { developmentOrigin: 'http://localhost:5173' })).toBe(true);
-    expect(isTrustedRendererUrl('http://127.0.0.1:5173/page', { developmentOrigin: 'http://localhost:5173' })).toBe(false);
-    expect(isTrustedRendererUrl('file:///app/dist/renderer/index.html', { productionUrl: 'file:///app/dist/renderer/index.html' })).toBe(true);
-    expect(isTrustedRendererUrl('file:///tmp/other.html', { productionUrl: 'file:///app/dist/renderer/index.html' })).toBe(false);
+    expect(isTrustedRendererUrl('http://localhost:5173/page', { mode: 'development', origin: 'http://localhost:5173' })).toBe(true);
+    expect(isTrustedRendererUrl('http://127.0.0.1:5173/page', { mode: 'development', origin: 'http://localhost:5173' })).toBe(false);
+    expect(isTrustedRendererUrl('file:///app/dist/renderer/index.html', { mode: 'production', url: 'file:///app/dist/renderer/index.html' })).toBe(true);
+    expect(isTrustedRendererUrl('file:///tmp/other.html', { mode: 'production', url: 'file:///app/dist/renderer/index.html' })).toBe(false);
+    expect(isTrustedRendererUrl('file:///app/dist/renderer/index.html', undefined)).toBe(false);
   });
 
   it('never honors a development-server environment override in a packaged app', () => {

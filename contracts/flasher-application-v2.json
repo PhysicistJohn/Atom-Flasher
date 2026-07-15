@@ -1,0 +1,65 @@
+{
+  "$schema": "./schemas/flasher-application-v2.schema.json",
+  "$id": "https://physicistjohn.github.io/tinysa-flasher/contracts/flasher-application-v2.json",
+  "contractId": "tinysa-flasher-application",
+  "contractVersion": 2,
+  "applicationContractVersion": 2,
+  "deviceContractVersion": 2,
+  "versionSemantics": {
+    "contractVersion": "Version of this JSON document shape and interpretation; increment for an incompatible serialization or semantic change.",
+    "applicationContractVersion": "Version of the externally observable updater ownership, workflow, and safety guarantees; increment when a consumer must change integration behavior.",
+    "deviceContractVersion": "Version of physical CDC admission, preflight, DFU write, and post-write verification assumptions and guarantees; increment when supported device behavior changes incompatibly.",
+    "releaseVersioning": "OEM firmware releases are independently versioned immutable manifests; changing only the selected OEM release does not increment the three contract versions."
+  },
+  "owner": "firmware-update-control-plane",
+  "usbOwnership": {
+    "atomizerOperationalSession": "Atomizer exclusively owns CDC analyzer/generator operation outside a firmware-update session.",
+    "flasherUpdateSession": "TinySA Flasher exclusively owns CDC discovery/preflight, DFU admission/write, and CDC post-write verification for the complete firmware-update session.",
+    "mutualExclusion": "Atomizer and TinySA Flasher must never access the same physical device simultaneously; close or disconnect Atomizer before starting an update session."
+  },
+  "releaseManifest": {
+    "path": "releases/oem-zs407-c979386-v1.json",
+    "$id": "https://physicistjohn.github.io/tinysa-flasher/contracts/releases/oem-zs407-c979386-v1.json",
+    "sha256": "00e02b32d9a23477a7a26152901637bddc9bad156bd62688c5471374616277f5",
+    "canonical": true
+  },
+  "release": {
+    "product": "tinySA Ultra / Ultra+",
+    "version": "tinySA4_v1.4-224-gc979386",
+    "revision": "c979386",
+    "sourceCommit": "c97938697b6c7485e7cab50bca9af76996b7d671",
+    "publishedAt": "2026-05-06T11:33:12.000Z",
+    "downloadUrl": "http://dfu.tinydevices.org/tinySA4/DFU/tinySA4_v1.4-224-gc979386.bin",
+    "sha256": "3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41",
+    "sizeBytes": 185704,
+    "transportIntegrity": "pinned-sha256"
+  },
+  "targetSelection": {
+    "oem": "The canonical immutable OEM release remains the default target and is fetched over an untrusted transport then admitted by exact size and SHA-256.",
+    "localCustom": "A native-main file picker may admit a manifest-v1 ZS407 build and adjacent BIN into owner-only content-addressed storage after strict provenance, vector, embedded identity, size, and SHA-256 validation.",
+    "rendererPathPolicy": "The renderer can request native target selection but cannot supply or observe a filesystem path.",
+    "targetChangePolicy": "A target cannot change after preparation; a recovered prepared custom target must be rebound from its deterministic app-owned paths before write.",
+    "customQualificationProof": "qualificationEvidenceSha256 is required exactly for qualified local-custom targets and forbidden for unqualified targets; native confirmation displays the custom manifest SHA-256.",
+    "customObservationPolicy": "Ordinary CDC observation of matching custom version/revision labels cannot prove exact target bytes or provenance and remains custom-current/install-custom; only a just-completed durable write transaction may retain exact-target completion evidence.",
+    "descriptorWriteBoundary": "The write path opens and verifies one regular-file descriptor, asserts that same open file description is stable immediately before spawn, and inherits it into dfu-util without resolving a firmware pathname."
+  },
+  "safetyInvariants": {
+    "physicalCdcAdmission": "exact-0483-5740-and-zs407-firmware-identity",
+    "rfOutputDuringAdmission": "commanded-off-before-and-after-identity",
+    "artifactAdmission": "oem-exact-release-size-and-sha256-or-local-manifest-content-addressed-size-sha256-vectors-embedded-identity-and-qualification-proof-coupling",
+    "dfuUtility": "exact-version-0.11",
+    "dfuAdmission": "one-0483-df11-alt0-internal-flash-with-nonempty-identity",
+    "dfuToctou": "same-persisted-fingerprint-reenumerated-immediately-before-write",
+    "writeBoundary": "target-specific-native-human-confirmation-and-durable-v2-prewrite-journal",
+    "repeatWritePolicy": "started-or-indeterminate-active-session-is-global-fail-closed",
+    "processConcurrency": "electron-single-instance-and-exclusive-filesystem-write-lock",
+    "postWriteVerification": "exact-cdc-identity-device-id-and-selected-target-version-revision-and-qualification-with-exact-custom-target-claim-retained-only-by-the-just-completed-durable-write",
+    "legacySafetyEvidence": "conflict-detecting-one-time-import-from-atomizer-user-data-with-v1-read-compatibility",
+    "automation": "no-automatic-flash"
+  },
+  "externalTrustBoundaries": {
+    "dfuUtil": "Externally installed executable discovered by explicit TINYSA_DFU_UTIL or bounded PATH search; version output must identify 0.11, but the binary is not bundled or cryptographically pinned by this application.",
+    "oemHttpHost": "OEM artifact transport is untrusted; admission is exact byte length plus pinned SHA-256.",
+    "localManifestAndBinary": "Operator-selected files are untrusted; native main opens without following symlinks, requires current-user ownership and non-group/world-writable metadata, validates strict manifest and binary structure, then copies create-once into owner-only content-addressed storage."
+  }
+}

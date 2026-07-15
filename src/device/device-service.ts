@@ -19,6 +19,7 @@ import { SerialTransport } from './serial-transport.js';
 const REQUIRED_COMMANDS = ['version', 'info', 'help', 'mode', 'output', 'vbat', 'deviceid', 'capture'] as const;
 
 export interface DeviceTransport extends ByteTransport { list(): Promise<PortCandidate[]>; }
+export const MANUAL_POWER_OFF_CONFIRMATION = 'DEVICE IS PHYSICALLY POWERED OFF' as const;
 
 export class Zs407DeviceService {
   #scheduler: CommandScheduler | undefined;
@@ -28,10 +29,8 @@ export class Zs407DeviceService {
   #commands: readonly string[] = [];
   #closing = false;
   #outputOffUnconfirmed = false;
-  #unsubscribeTransport: () => void;
-
   constructor(private readonly transport: DeviceTransport = new SerialTransport()) {
-    this.#unsubscribeTransport = transport.onEvent((event) => this.#handleTransportEvent(event));
+    transport.onEvent((event) => this.#handleTransportEvent(event));
   }
 
   listDevices(): Promise<PortCandidate[]> { return this.transport.list(); }
@@ -44,6 +43,9 @@ export class Zs407DeviceService {
     this.#snapshot = { connection: 'connecting' };
     try {
       await this.transport.open(liveCandidate.path);
+      if (this.#snapshot.connection === 'faulted') {
+        throw new Error(`Serial transport faulted during connection: ${this.#snapshot.fault ?? 'unknown transport fault'}`);
+      }
       this.#outputOffUnconfirmed = true;
       this.#scheduler = new CommandScheduler(this.transport);
       this.#snapshot = { connection: 'identifying' };
@@ -105,6 +107,33 @@ export class Zs407DeviceService {
     }
     this.#outputOffUnconfirmed = false;
     this.#snapshot = { connection: 'disconnected' };
+  }
+
+  /**
+   * Clears an otherwise unrecoverable RF-off uncertainty only after the main
+   * process obtains an explicit physical power-off confirmation. This never
+   * admits a device or resumes an update; a later session must start from a
+   * fresh exact USB enumeration and run `output off` again.
+   */
+  async recoverAfterManualPowerOff(confirmation: typeof MANUAL_POWER_OFF_CONFIRMATION): Promise<DeviceSnapshot> {
+    if (confirmation !== MANUAL_POWER_OFF_CONFIRMATION) throw new Error('Exact manual power-off confirmation is required');
+    if (this.#snapshot.connection !== 'faulted' || !this.#outputOffUnconfirmed) {
+      throw new Error('Manual power-off recovery is available only for an unconfirmed RF-off fault');
+    }
+    this.#scheduler?.dispose();
+    this.#scheduler = undefined;
+    this.#closing = true;
+    try { await this.transport.close(); }
+    catch (value) {
+      const error = new Error(`Manual power-off was acknowledged, but the host serial port still could not close: ${message(value)}`, { cause: value });
+      this.#snapshot = { connection: 'faulted', fault: error.message };
+      throw error;
+    } finally {
+      this.#closing = false;
+    }
+    this.#outputOffUnconfirmed = false;
+    this.#snapshot = { connection: 'disconnected', fault: 'Previous RF-off state was resolved by a local physical power-off confirmation' };
+    return this.snapshot();
   }
 
   async readDiagnostics(): Promise<DeviceDiagnostics> {

@@ -12,11 +12,16 @@ export function selectDevelopmentServerUrl(value: string | undefined, isPackaged
   return validateDevelopmentServerUrl(value);
 }
 
-export function isTrustedRendererUrl(actual: string, expected: { developmentOrigin?: string; productionUrl?: string }): boolean {
+export type RendererTrust =
+  | { mode: 'development'; origin: string }
+  | { mode: 'production'; url: string };
+
+export function isTrustedRendererUrl(actual: string, expected: RendererTrust | undefined): boolean {
   try {
+    if (!expected) return false;
     const url = new URL(actual);
-    if (expected.developmentOrigin) return url.origin === expected.developmentOrigin;
-    return Boolean(expected.productionUrl && url.href === expected.productionUrl);
+    if (expected.mode === 'development') return url.origin === expected.origin;
+    return url.href === expected.url;
   } catch {
     return false;
   }

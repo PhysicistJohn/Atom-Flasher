@@ -1,0 +1,777 @@
+{
+  "$schema": "../schemas/interface-contract-v2.schema.json",
+  "contractId": "tinysa-flasher-safety-evidence",
+  "contractVersion": 2,
+  "kind": "persistence",
+  "owner": "firmware-transaction-evidence",
+  "provider": "FirmwareTransactionStore and evidence inspectors",
+  "consumers": [
+    "FirmwareUpdater",
+    "legacy migration",
+    "manual recovery"
+  ],
+  "compatibility": "exact-version",
+  "typeDefinitions": {
+    "EvidenceFile": {
+      "sourceModule": "src/core/persistence/durable-files.ts",
+      "typeExport": "EvidenceFile",
+      "sourceSignature": "export interface EvidenceFile { directory: string; path: string; name: string; relativePath: string; bytes: Uint8Array; sha256: string; }"
+    },
+    "EvidenceInspectionPolicy": {
+      "sourceModule": "src/core/persistence/evidence-inspector.ts",
+      "typeExport": "EvidenceInspectionPolicy",
+      "sourceSignature": "export interface EvidenceInspectionPolicy { inspectArtifactCache?: boolean; verifyArtifact?: ArtifactVerifier; }"
+    },
+    "JournalLinkageEvidence": {
+      "sourceModule": "src/core/persistence/evidence-linkage.ts",
+      "typeExport": "JournalLinkageEvidence",
+      "sourceSignature": "export interface JournalLinkageEvidence { kind: 'active journal' | 'completed ledger'; path: string; sha256: string; journal: HistoricalFirmwareJournal; }"
+    },
+    "PreflightLinkageEvidence": {
+      "sourceModule": "src/core/persistence/evidence-linkage.ts",
+      "typeExport": "PreflightLinkageEvidence",
+      "sourceSignature": "export interface PreflightLinkageEvidence { path: string; sha256: string; record: HistoricalPreflightRecord; }"
+    },
+    "AuditLinkageEvidence": {
+      "sourceModule": "src/core/persistence/evidence-linkage.ts",
+      "typeExport": "AuditLinkageEvidence",
+      "sourceSignature": "export interface AuditLinkageEvidence { path: string; sha256: string; record: HistoricalTransactionAudit; }"
+    },
+    "WriteLockLinkageEvidence": {
+      "sourceModule": "src/core/persistence/evidence-linkage.ts",
+      "typeExport": "WriteLockLinkageEvidence",
+      "sourceSignature": "export interface WriteLockLinkageEvidence { path: string; lock: WriteLockV1; }"
+    },
+    "EvidenceLinkageInput": {
+      "sourceModule": "src/core/persistence/evidence-linkage.ts",
+      "typeExport": "EvidenceLinkageInput",
+      "sourceSignature": "export interface EvidenceLinkageInput { active: JournalLinkageEvidence | undefined; ledgers: readonly JournalLinkageEvidence[]; preflights: readonly PreflightLinkageEvidence[]; audits: readonly AuditLinkageEvidence[]; writeLock: WriteLockLinkageEvidence | undefined; }"
+    },
+    "FirmwareTransactionRecovery": {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "typeExport": "FirmwareTransactionRecovery",
+      "sourceSignature": "export interface FirmwareTransactionRecovery { state?: FirmwareUpdateState; blockingReason?: string; writeLockPresent: boolean; }"
+    },
+    "FirmwareTransactionStoreTestHooks": {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "typeExport": "FirmwareTransactionStoreTestHooks",
+      "sourceSignature": "export interface FirmwareTransactionStoreTestHooks { beforeWriteLockAcquire?(preparationId: string): Promise<void>; afterWriteLockAcquire?(preparationId: string): Promise<void>; afterWriteAdmissionPersist?(preparationId: string): Promise<void>; }"
+    },
+    "FirmwareTransactionClockPort": {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "typeExport": "FirmwareTransactionClockPort",
+      "sourceSignature": "export interface FirmwareTransactionClockPort { now(): Date; }"
+    },
+    "FirmwareTransactionIdentityPort": {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "typeExport": "FirmwareTransactionIdentityPort",
+      "sourceSignature": "export interface FirmwareTransactionIdentityPort { randomUuid(): string; }"
+    },
+    "FirmwareTransactionStoreRuntime": {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "typeExport": "FirmwareTransactionStoreRuntime",
+      "sourceSignature": "export interface FirmwareTransactionStoreRuntime extends FirmwareTransactionClockPort, FirmwareTransactionIdentityPort {}"
+    },
+    "FirmwareWriteSession": {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "typeExport": "FirmwareWriteSession",
+      "sourceSignature": "export interface FirmwareWriteSession { readonly preparationId: string; readonly dfuIdentity: DfuIdentity; admitWrite(state: FirmwareUpdateState): Promise<void>; persist(state: FirmwareUpdateState): Promise<void>; writeAudit<Stage extends TransactionAuditStage>(stage: Stage, value: AuditValue<Stage>): Promise<void>; archiveCompleted(state: FirmwareUpdateState): Promise<void>; releaseBeforeWrite(): Promise<void>; releaseAfterArchive(): Promise<void>; }"
+    },
+    "FirmwareTransactionStore": {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "typeExport": "FirmwareTransactionStore",
+      "sourceSignature": "class FirmwareTransactionStore { get completedSessionArchived(): boolean; recover(): Promise<FirmwareTransactionRecovery>; persist(state: FirmwareUpdateState): Promise<void>; recordPreflightAndPersist(recordValue: FirmwarePreflightRecord, stateValue: FirmwareUpdateState): Promise<void>; acquireWriteSession(preparationId: string, dfuIdentity: DfuIdentity): Promise<FirmwareWriteSession>; writeLockExists(): Promise<boolean>; archiveCompletedRecovery(state: FirmwareUpdateState): Promise<void> }"
+    },
+    "FirmwareUpdateState": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "firmwareUpdateStateSchema",
+      "typeExport": "FirmwareUpdateState",
+      "sourceSignature": "export type FirmwareUpdateState = z.infer<typeof firmwareUpdateStateSchema>;"
+    },
+    "FirmwarePreflightRecordV2": {
+      "sourceModule": "src/core/persistence/evidence-schemas-v2.ts",
+      "runtimeValidator": "preflightRecordV2Schema",
+      "typeExport": "PreflightRecordV2",
+      "sourceSignature": "export type PreflightRecordV2 = z.infer<typeof preflightRecordV2Schema>;"
+    },
+    "FirmwareUpdateJournalV2": {
+      "sourceModule": "src/core/persistence/evidence-schemas-v2.ts",
+      "runtimeValidator": "firmwareUpdateJournalV2Schema",
+      "typeExport": "FirmwareUpdateJournalV2",
+      "sourceSignature": "export type FirmwareUpdateJournalV2 = z.infer<typeof firmwareUpdateJournalV2Schema>;"
+    },
+    "FirmwareResultAuditV2": {
+      "sourceModule": "src/core/persistence/evidence-schemas-v2.ts",
+      "runtimeValidator": "transactionAuditV2Schema",
+      "typeExport": "TransactionAuditV2",
+      "sourceSignature": "export type TransactionAuditV2 = z.infer<typeof transactionAuditV2Schema>;"
+    },
+    "CompletedFirmwareUpdateJournalV2": {
+      "sourceModule": "src/core/persistence/evidence-schemas-v2.ts",
+      "runtimeValidator": "completedLedgerV2Schema",
+      "typeExport": "CompletedLedgerV2",
+      "sourceSignature": "export type CompletedLedgerV2 = z.infer<typeof completedLedgerV2Schema>;"
+    },
+    "HistoricalV1OrV2Journal": {
+      "sourceModule": "src/core/persistence/evidence-registry.ts",
+      "typeExport": "HistoricalFirmwareJournal",
+      "sourceSignature": "export type HistoricalFirmwareJournal = FirmwareUpdateJournalV1 | FirmwareUpdateJournalV2;"
+    },
+    "DfuIdentity": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "dfuIdentitySchema",
+      "typeExport": "DfuIdentity",
+      "sourceSignature": "export type DfuIdentity = z.infer<typeof dfuIdentitySchema>;"
+    },
+    "EvidenceIssueArray": {
+      "sourceModule": "src/core/persistence/evidence-inspector.ts",
+      "valueExport": "inspectFirmwareSafetyEvidence",
+      "platformType": "readonly string[]"
+    },
+    "Date": {
+      "sourceModule": "platform:ecmascript",
+      "platformType": "Date"
+    },
+    "UuidV4": {
+      "sourceModule": "src/core/contracts.ts",
+      "runtimeValidator": "uuidSchema",
+      "platformType": "string"
+    },
+    "boolean": {
+      "sourceModule": "platform:ecmascript",
+      "platformType": "boolean"
+    },
+    "void": {
+      "sourceModule": "platform:ecmascript",
+      "platformType": "void"
+    }
+  },
+  "capabilities": [
+    {
+      "capabilityId": "collect-evidence",
+      "input": {
+        "typeRef": "EvidenceInspectionPolicy",
+        "description": "Evidence directory plus cache-inspection policy."
+      },
+      "output": {
+        "typeRef": "EvidenceFile",
+        "description": "Zero or more no-symlink regular-file snapshots with SHA-256."
+      },
+      "errors": [],
+      "invariants": [
+        "Unsafe structural entries become issues rather than trusted evidence."
+      ]
+    },
+    {
+      "capabilityId": "inspect-evidence",
+      "input": {
+        "typeRef": "EvidenceInspectionPolicy",
+        "description": "Historical v1/v2 audit policy."
+      },
+      "output": {
+        "typeRef": "EvidenceIssueArray",
+        "description": "Every structural, schema, linkage, ownership, and artifact inconsistency."
+      },
+      "errors": [],
+      "invariants": [
+        "Historical evidence selects its immutable reader by schema version and is never reinterpreted as the active release."
+      ]
+    },
+    {
+      "capabilityId": "inspect-linkage",
+      "input": {
+        "typeRef": "EvidenceLinkageInput",
+        "description": "Already schema-valid active, ledger, preflight, audit, and lock records."
+      },
+      "output": {
+        "typeRef": "EvidenceIssueArray",
+        "description": "All cross-record relationship violations."
+      },
+      "errors": [],
+      "invariants": [
+        "Linkage is derived only from persisted evidence."
+      ]
+    },
+    {
+      "capabilityId": "link-journal",
+      "input": {
+        "typeRef": "JournalLinkageEvidence",
+        "description": "Active or ledger journal linkage item."
+      },
+      "output": {
+        "typeRef": "HistoricalV1OrV2Journal",
+        "description": "Strict historical journal carried by the item."
+      },
+      "errors": [],
+      "invariants": [
+        "Path, digest, and parsed journal remain inseparable."
+      ]
+    },
+    {
+      "capabilityId": "link-preflight",
+      "input": {
+        "typeRef": "PreflightLinkageEvidence",
+        "description": "Strict preflight linkage item."
+      },
+      "output": {
+        "typeRef": "FirmwarePreflightRecordV2",
+        "description": "Current v2 preflight shape when schemaVersion is 2."
+      },
+      "errors": [],
+      "invariants": [
+        "Filename preparation identity equals record identity."
+      ]
+    },
+    {
+      "capabilityId": "link-audit",
+      "input": {
+        "typeRef": "AuditLinkageEvidence",
+        "description": "Strict audit linkage item."
+      },
+      "output": {
+        "typeRef": "FirmwareResultAuditV2",
+        "description": "Current v2 audit variant when schemaVersion is 2."
+      },
+      "errors": [],
+      "invariants": [
+        "Audit stage and filename agree."
+      ]
+    },
+    {
+      "capabilityId": "link-write-lock",
+      "input": {
+        "typeRef": "WriteLockLinkageEvidence",
+        "description": "Strict write-owner lock evidence."
+      },
+      "output": {
+        "typeRef": "boolean",
+        "description": "Whether lock ownership/linkage is supported."
+      },
+      "errors": [],
+      "invariants": [
+        "Unknown or stale ownership fails closed."
+      ]
+    },
+    {
+      "capabilityId": "test-hook-before-lock",
+      "input": {
+        "typeRef": "FirmwareTransactionStoreTestHooks",
+        "description": "Test-only pre-acquisition scheduling seam."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Hook completion."
+      },
+      "errors": [],
+      "invariants": [
+        "Production composition supplies no scheduling hook."
+      ]
+    },
+    {
+      "capabilityId": "test-hook-after-lock",
+      "input": {
+        "typeRef": "FirmwareTransactionStoreTestHooks",
+        "description": "Test-only post-acquisition scheduling seam."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Hook completion."
+      },
+      "errors": [],
+      "invariants": [
+        "Hook cannot alter lock ownership records."
+      ]
+    },
+    {
+      "capabilityId": "test-hook-after-admission",
+      "input": {
+        "typeRef": "FirmwareTransactionStoreTestHooks",
+        "description": "Test-only post-write-admission seam."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Hook completion."
+      },
+      "errors": [],
+      "invariants": [
+        "Write admission persistence already completed before this hook."
+      ]
+    },
+    {
+      "capabilityId": "transaction-now",
+      "input": {
+        "typeRef": "FirmwareTransactionClockPort",
+        "description": "Transaction evidence clock."
+      },
+      "output": {
+        "typeRef": "Date",
+        "description": "Valid current Date."
+      },
+      "errors": [
+        {
+          "code": "INVALID_RUNTIME_VALUE",
+          "retryability": "never",
+          "description": "Clock returned an invalid date."
+        }
+      ],
+      "invariants": [
+        "Persisted timestamps are ISO instants."
+      ]
+    },
+    {
+      "capabilityId": "transaction-random-uuid",
+      "input": {
+        "typeRef": "FirmwareTransactionIdentityPort",
+        "description": "Transaction identity source."
+      },
+      "output": {
+        "typeRef": "UuidV4",
+        "description": "UUID-v4 owner or temporary identity."
+      },
+      "errors": [
+        {
+          "code": "INVALID_RUNTIME_VALUE",
+          "retryability": "never",
+          "description": "Identity is invalid."
+        }
+      ],
+      "invariants": [
+        "Production uses cryptographic randomUUID."
+      ]
+    },
+    {
+      "capabilityId": "transaction-runtime-composition",
+      "input": {
+        "typeRef": "FirmwareTransactionStoreRuntime",
+        "description": "Clock and identity composition."
+      },
+      "output": {
+        "typeRef": "FirmwareTransactionStore",
+        "description": "Transaction store constructed with explicit nondeterminism."
+      },
+      "errors": [],
+      "invariants": [
+        "No persistence operation reads ambient time or identity directly."
+      ]
+    },
+    {
+      "capabilityId": "session-admit-write",
+      "input": {
+        "typeRef": "FirmwareWriteSession",
+        "description": "Owned session plus ready-to-flash v2 state."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Durable started journal admission."
+      },
+      "errors": [
+        {
+          "code": "JOURNAL_OWNERSHIP_LOST",
+          "retryability": "manual-inspection",
+          "description": "Owner or expected generation changed."
+        }
+      ],
+      "invariants": [
+        "Once persistence is attempted, uncertain completion prevents safe pre-write release."
+      ]
+    },
+    {
+      "capabilityId": "session-persist",
+      "input": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "A legal state for the owned session."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Durable generation replacement."
+      },
+      "errors": [
+        {
+          "code": "JOURNAL_OWNERSHIP_LOST",
+          "retryability": "manual-inspection",
+          "description": "Owner or generation changed."
+        }
+      ],
+      "invariants": [
+        "Phase, preparation, target, DFU, and disposition invariants are checked before write."
+      ]
+    },
+    {
+      "capabilityId": "session-write-audit",
+      "input": {
+        "typeRef": "FirmwareResultAuditV2",
+        "description": "One target-bound stage-specific append-only audit."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Create-once durable audit completion."
+      },
+      "errors": [
+        {
+          "code": "EVIDENCE_COLLISION",
+          "retryability": "manual-inspection",
+          "description": "Stage evidence conflicts or cannot be committed durably."
+        }
+      ],
+      "invariants": [
+        "Each stage value links to the exact preparation and target SHA."
+      ]
+    },
+    {
+      "capabilityId": "session-archive-completed",
+      "input": {
+        "typeRef": "CompletedFirmwareUpdateJournalV2",
+        "description": "Verified completed v2 state."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Immutable ledger archive completion."
+      },
+      "errors": [
+        {
+          "code": "LEDGER_CONFLICT",
+          "retryability": "manual-inspection",
+          "description": "Completion chain is absent, duplicated, malformed, or conflicting."
+        }
+      ],
+      "invariants": [
+        "Only completed disposition plus verified post-reboot identity enters the ledger."
+      ]
+    },
+    {
+      "capabilityId": "session-release-before-write",
+      "input": {
+        "typeRef": "FirmwareWriteSession",
+        "description": "Known-owned session before any write-admission persistence attempt."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Owner lock removed durably."
+      },
+      "errors": [
+        {
+          "code": "JOURNAL_OWNERSHIP_LOST",
+          "retryability": "manual-inspection",
+          "description": "Safe release cannot be proven."
+        }
+      ],
+      "invariants": [
+        "Release is forbidden after write-admission persistence was attempted."
+      ]
+    },
+    {
+      "capabilityId": "session-release-after-archive",
+      "input": {
+        "typeRef": "FirmwareWriteSession",
+        "description": "Owned session whose immutable completed ledger already exists."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Owner lock removed durably."
+      },
+      "errors": [
+        {
+          "code": "JOURNAL_OWNERSHIP_LOST",
+          "retryability": "manual-inspection",
+          "description": "Lock cleanup cannot be proven."
+        }
+      ],
+      "invariants": [
+        "Ledger durability precedes owner-lock release."
+      ]
+    },
+    {
+      "capabilityId": "store-completed-session-archived",
+      "input": {
+        "typeRef": "FirmwareTransactionStore",
+        "description": "Current transaction store."
+      },
+      "output": {
+        "typeRef": "boolean",
+        "description": "Whether this process archived a completed session."
+      },
+      "errors": [],
+      "invariants": [
+        "True prevents retry semantics even if lock cleanup later fails."
+      ]
+    },
+    {
+      "capabilityId": "store-recover",
+      "input": {
+        "typeRef": "FirmwareTransactionStore",
+        "description": "Application evidence directory."
+      },
+      "output": {
+        "typeRef": "FirmwareTransactionRecovery",
+        "description": "Recovered current state, blocking reason, and lock presence."
+      },
+      "errors": [
+        {
+          "code": "EVIDENCE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "Evidence is structurally unsafe or conflicting."
+        }
+      ],
+      "invariants": [
+        "Recovery mutates only the narrowly defined unprepared-v1 migration path."
+      ]
+    },
+    {
+      "capabilityId": "store-persist",
+      "input": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Current legal updater state."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Durable v2 journal generation."
+      },
+      "errors": [
+        {
+          "code": "JOURNAL_OWNERSHIP_LOST",
+          "retryability": "manual-inspection",
+          "description": "Mutation lock or generation check failed."
+        }
+      ],
+      "invariants": [
+        "Current writers always use schemaVersion 2."
+      ]
+    },
+    {
+      "capabilityId": "store-record-preflight",
+      "input": {
+        "typeRef": "FirmwarePreflightRecordV2",
+        "description": "Strict target-bound preflight plus matching updater state."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Create-once preflight plus durable state completion."
+      },
+      "errors": [
+        {
+          "code": "EVIDENCE_COLLISION",
+          "retryability": "manual-inspection",
+          "description": "Preflight or journal persistence conflicts."
+        }
+      ],
+      "invariants": [
+        "Preflight is durable before CDC disconnect."
+      ]
+    },
+    {
+      "capabilityId": "store-acquire-write-session",
+      "input": {
+        "typeRef": "DfuIdentity",
+        "description": "Ready state plus exact re-enumerated DFU identity."
+      },
+      "output": {
+        "typeRef": "FirmwareWriteSession",
+        "description": "Exclusive owner-bound write capability."
+      },
+      "errors": [
+        {
+          "code": "JOURNAL_OWNERSHIP_LOST",
+          "retryability": "manual-inspection",
+          "description": "Another/stale session owns the write boundary."
+        }
+      ],
+      "invariants": [
+        "Global completed evidence and exact preflight linkage are checked before acquisition."
+      ]
+    },
+    {
+      "capabilityId": "store-write-lock-exists",
+      "input": {
+        "typeRef": "FirmwareTransactionStore",
+        "description": "Current evidence directory."
+      },
+      "output": {
+        "typeRef": "boolean",
+        "description": "Whether the exclusive write lock exists."
+      },
+      "errors": [],
+      "invariants": [
+        "Inspection does not modify the lock."
+      ]
+    },
+    {
+      "capabilityId": "store-archive-completed-recovery",
+      "input": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Recovered completed state with complete evidence chain."
+      },
+      "output": {
+        "typeRef": "void",
+        "description": "Idempotent immutable ledger recovery."
+      },
+      "errors": [
+        {
+          "code": "LEDGER_CONFLICT",
+          "retryability": "manual-inspection",
+          "description": "Recovered completion cannot be proven."
+        }
+      ],
+      "invariants": [
+        "Recovery archive never initiates a device write."
+      ]
+    },
+    {
+      "capabilityId": "journal-v2-shape",
+      "input": {
+        "typeRef": "FirmwareUpdateJournalV2",
+        "description": "Current target-bound active journal."
+      },
+      "output": {
+        "typeRef": "FirmwareUpdateState",
+        "description": "Strict schemaVersion-2 state."
+      },
+      "errors": [
+        {
+          "code": "EVIDENCE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "Target ID/SHA or state linkage is inconsistent."
+        }
+      ],
+      "invariants": [
+        "Journal targetSha256 equals the canonical digest of its target object."
+      ]
+    }
+  ],
+  "sourceProjections": [
+    {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "symbol": "FirmwareTransactionStoreTestHooks",
+      "symbolKind": "interface",
+      "members": [
+        {
+          "sourceMember": "beforeWriteLockAcquire",
+          "capabilityId": "test-hook-before-lock",
+          "sourceSignature": "beforeWriteLockAcquire?(preparationId: string): Promise<void>"
+        },
+        {
+          "sourceMember": "afterWriteLockAcquire",
+          "capabilityId": "test-hook-after-lock",
+          "sourceSignature": "afterWriteLockAcquire?(preparationId: string): Promise<void>"
+        },
+        {
+          "sourceMember": "afterWriteAdmissionPersist",
+          "capabilityId": "test-hook-after-admission",
+          "sourceSignature": "afterWriteAdmissionPersist?(preparationId: string): Promise<void>"
+        }
+      ]
+    },
+    {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "symbol": "FirmwareTransactionClockPort",
+      "symbolKind": "interface",
+      "members": [
+        {
+          "sourceMember": "now",
+          "capabilityId": "transaction-now",
+          "sourceSignature": "now(): Date"
+        }
+      ]
+    },
+    {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "symbol": "FirmwareTransactionIdentityPort",
+      "symbolKind": "interface",
+      "members": [
+        {
+          "sourceMember": "randomUuid",
+          "capabilityId": "transaction-random-uuid",
+          "sourceSignature": "randomUuid(): string"
+        }
+      ]
+    },
+    {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "symbol": "FirmwareWriteSession",
+      "symbolKind": "interface",
+      "members": [
+        {
+          "sourceMember": "admitWrite",
+          "capabilityId": "session-admit-write",
+          "sourceSignature": "admitWrite(state: FirmwareUpdateState): Promise<void>"
+        },
+        {
+          "sourceMember": "persist",
+          "capabilityId": "session-persist",
+          "sourceSignature": "persist(state: FirmwareUpdateState): Promise<void>"
+        },
+        {
+          "sourceMember": "writeAudit",
+          "capabilityId": "session-write-audit",
+          "sourceSignature": "writeAudit<Stage extends TransactionAuditStage>(stage: Stage, value: AuditValue<Stage>): Promise<void>"
+        },
+        {
+          "sourceMember": "archiveCompleted",
+          "capabilityId": "session-archive-completed",
+          "sourceSignature": "archiveCompleted(state: FirmwareUpdateState): Promise<void>"
+        },
+        {
+          "sourceMember": "releaseBeforeWrite",
+          "capabilityId": "session-release-before-write",
+          "sourceSignature": "releaseBeforeWrite(): Promise<void>"
+        },
+        {
+          "sourceMember": "releaseAfterArchive",
+          "capabilityId": "session-release-after-archive",
+          "sourceSignature": "releaseAfterArchive(): Promise<void>"
+        }
+      ]
+    },
+    {
+      "sourceModule": "src/core/persistence/firmware-transaction-store.ts",
+      "symbol": "FirmwareTransactionStore",
+      "symbolKind": "class",
+      "members": [
+        {
+          "sourceMember": "completedSessionArchived",
+          "capabilityId": "store-completed-session-archived",
+          "sourceSignature": "get completedSessionArchived(): boolean"
+        },
+        {
+          "sourceMember": "recover",
+          "capabilityId": "store-recover",
+          "sourceSignature": "recover(): Promise<FirmwareTransactionRecovery>"
+        },
+        {
+          "sourceMember": "persist",
+          "capabilityId": "store-persist",
+          "sourceSignature": "persist(state: FirmwareUpdateState): Promise<void>"
+        },
+        {
+          "sourceMember": "recordPreflightAndPersist",
+          "capabilityId": "store-record-preflight",
+          "sourceSignature": "recordPreflightAndPersist(recordValue: FirmwarePreflightRecord, stateValue: FirmwareUpdateState): Promise<void>"
+        },
+        {
+          "sourceMember": "acquireWriteSession",
+          "capabilityId": "store-acquire-write-session",
+          "sourceSignature": "acquireWriteSession(preparationId: string, dfuIdentity: DfuIdentity): Promise<FirmwareWriteSession>"
+        },
+        {
+          "sourceMember": "writeLockExists",
+          "capabilityId": "store-write-lock-exists",
+          "sourceSignature": "writeLockExists(): Promise<boolean>"
+        },
+        {
+          "sourceMember": "archiveCompletedRecovery",
+          "capabilityId": "store-archive-completed-recovery",
+          "sourceSignature": "archiveCompletedRecovery(state: FirmwareUpdateState): Promise<void>"
+        }
+      ]
+    }
+  ],
+  "sourceOfTruth": [
+    "src/core/contracts.ts",
+    "src/core/persistence/durable-files.ts",
+    "src/core/persistence/evidence-inspector.ts",
+    "src/core/persistence/evidence-linkage.ts",
+    "src/core/persistence/evidence-registry.ts",
+    "src/core/persistence/evidence-schemas-v1.ts",
+    "src/core/persistence/evidence-schemas-v2.ts",
+    "src/core/persistence/firmware-transaction-store.ts"
+  ]
+}

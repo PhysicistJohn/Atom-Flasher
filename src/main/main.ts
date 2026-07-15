@@ -1,206 +1,358 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { BrowserWindow, app, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
-import { firmwareUpdatePreflightSchema, portCandidateSchema } from '../core/contracts.js';
-import { FirmwareUpdater } from '../core/firmware-updater.js';
+import {
+  BrowserWindow,
+  app,
+  dialog,
+  ipcMain,
+  shell,
+  type IpcMainInvokeEvent,
+  type OpenDialogOptions,
+  type WebPreferences,
+} from 'electron';
+import { FlasherApplication } from '../application/flasher-application.js';
+import { FirmwareUpdater, locateDfuUtility } from '../core/firmware-updater.js';
+import { LocalFirmwareBuildStore } from '../core/local-firmware-build.js';
 import { migrateLegacyFirmwareState } from '../core/legacy-migration.js';
 import { Zs407DeviceService } from '../device/device-service.js';
-import { IPC } from './ipc-contract.js';
-import { OperationGate } from './operation-gate.js';
-import { isTrustedRendererUrl, selectDevelopmentServerUrl } from './security.js';
+import { loadApplicationConfig, type ApplicationConfig } from './config.js';
+import { ElectronSafetyPrompts } from './electron-safety-prompts.js';
+import { registerApplicationIpc } from './ipc-handlers.js';
+import { LocalFirmwareTargetPicker } from './local-firmware-target-picker.js';
+import { isTrustedRendererUrl, type RendererTrust } from './security.js';
 
 app.setName('TinySA Flasher');
-const singleInstance = app.requestSingleInstanceLock();
+const isolatedDeveloperData = !app.isPackaged && process.env.TINYSA_FLASHER_DEV_USER_DATA
+  ? process.env.TINYSA_FLASHER_DEV_USER_DATA
+  : undefined;
+if (isolatedDeveloperData) app.setPath('userData', isolatedDeveloperData);
+
+const runtimeSmoke = app.isPackaged && process.env.TINYSA_FLASHER_RUNTIME_SMOKE === '1';
+const singleInstance = runtimeSmoke || app.requestSingleInstanceLock();
 if (!singleInstance) app.quit();
 
-let mainWindow: BrowserWindow | undefined;
-let firmwareWriteBoundaryActive = false;
-let nativeFlashRequestInFlight = false;
-let shutdownDevice: Zs407DeviceService | undefined;
-let safeShutdownComplete = false;
-let safeShutdownStarted = false;
-let trustedRenderer: { developmentOrigin?: string; productionUrl?: string } = {};
-const operationGate = new OperationGate();
+class DesktopHost {
+  #window: BrowserWindow | undefined;
+  #trustedRenderer: RendererTrust | undefined;
+  #config: ApplicationConfig | undefined;
+  #application: FlasherApplication | undefined;
+  #removeIpc: (() => void) | undefined;
+  #allowWindowDestruction = false;
+  #quitApproved = false;
+  #shutdownInFlight = false;
+  #windowReleaseInFlight = false;
 
-if (singleInstance) {
-  app.on('second-instance', () => {
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-  });
-
-  app.on('before-quit', (event) => {
-    if (firmwareWriteBoundaryActive || operationGate.active === 'flash-firmware') {
+  installLifecycle(): void {
+    app.on('second-instance', () => {
+      const window = this.#liveWindow();
+      if (!window) return;
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+    });
+    app.on('before-quit', (event) => {
+      if (this.#quitApproved) return;
       event.preventDefault();
-      mainWindow?.show();
-      const options = {
-        type: 'warning' as const,
-        title: 'Firmware write in progress',
-        message: 'TinySA Flasher must remain open until dfu-util exits and post-reboot verification finishes.',
-        buttons: ['Keep TinySA Flasher open'],
-      };
-      void (mainWindow ? dialog.showMessageBox(mainWindow, options) : dialog.showMessageBox(options));
+      void this.#requestSafeQuit();
+    });
+    app.on('activate', () => {
+      if (!this.#liveWindow() && this.#config && this.#application) {
+        this.#window = this.#createWindow(this.#config);
+        this.#application.resumeAfterWindowOpen();
+      }
+    });
+    app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+  }
+
+  async start(): Promise<void> {
+    const config = loadApplicationConfig(process.env, app.isPackaged);
+    this.#config = config;
+    const userData = app.getPath('userData');
+    const applicationData = app.getPath('appData');
+    if (!isolatedDeveloperData) {
+      await migrateLegacyFirmwareState(join(userData, 'firmware'), [
+        join(applicationData, 'TinySA Atomizer', 'firmware'),
+        join(applicationData, 'TinySA Atomizer Dev', 'firmware'),
+      ]);
+    }
+
+    const firmwareDirectory = join(userData, 'firmware');
+    const device = new Zs407DeviceService();
+    const updater = new FirmwareUpdater(firmwareDirectory, device, {
+      locateDfuUtility: () => locateDfuUtility(config.dfuUtilPath, config.executableSearchPath),
+    });
+    const prompts = new ElectronSafetyPrompts(() => this.#liveWindow());
+    const localBuildStore = new LocalFirmwareBuildStore(firmwareDirectory);
+    const targetPicker = new LocalFirmwareTargetPicker(
+      () => this.#liveWindow(),
+      {
+        chooseManifest: async (parent) => {
+          const options: OpenDialogOptions = {
+            title: 'Select a TinySA_Firmware build manifest',
+            buttonLabel: 'Verify build manifest',
+            properties: ['openFile', 'dontAddToRecent'],
+            filters: [{ name: 'TinySA firmware build manifest', extensions: ['json'] }],
+          };
+          const selected = parent
+            ? await dialog.showOpenDialog(parent, options)
+            : await dialog.showOpenDialog(options);
+          return selected.canceled || selected.filePaths.length !== 1 ? undefined : selected.filePaths[0];
+        },
+      },
+      localBuildStore,
+    );
+    const recovered = await updater.state();
+    if (recovered.target.kind === 'local-custom'
+      && recovered.preparation
+      && recovered.writeDisposition === 'not-started') {
+      try {
+        const selection = await targetPicker.reopenLocalFirmwareTarget(recovered.target);
+        await updater.admitLocalCustomTarget(selection.target, selection.artifact);
+      } catch (value) {
+        // The application remains available so the operator can re-select the
+        // exact manifest. No DFU write is possible without re-admission.
+        console.warn('Prepared custom artifact requires operator re-admission', value);
+      }
+    }
+    const application = new FlasherApplication(device, updater, prompts, targetPicker);
+    await application.initialize();
+    this.#application = application;
+    this.#removeIpc = registerApplicationIpc<IpcMainInvokeEvent>({
+      application,
+      registrar: {
+        handle: (channel, listener) => ipcMain.handle(channel, (event, ...args) => listener(event, ...args)),
+        removeHandler: (channel) => ipcMain.removeHandler(channel),
+      },
+      isTrusted: (event) => this.#isTrustedEvent(event),
+    });
+    this.#window = this.#createWindow(config);
+  }
+
+  #createWindow(config: ApplicationConfig): BrowserWindow {
+    this.#allowWindowDestruction = false;
+    const window = new BrowserWindow({
+      width: 980,
+      height: 760,
+      minWidth: 760,
+      minHeight: 640,
+      title: 'TinySA Flasher',
+      backgroundColor: '#080b10',
+      show: false,
+      webPreferences: secureRendererWebPreferences(),
+    });
+    // The renderer needs no Chromium permission surface (USB, serial, media,
+    // geolocation, notifications, clipboard-read, etc.). Keep those separate
+    // from the narrowly contracted preload API.
+    denyRendererPermissions(window);
+    window.once('ready-to-show', () => window.show());
+    window.webContents.setWindowOpenHandler(({ url }) => {
+      if (isAllowedExternalUrl(url)) void shell.openExternal(url);
+      return { action: 'deny' };
+    });
+    const preventUntrustedNavigation = (event: Electron.Event, url: string) => {
+      if (!this.#trustedRenderer || !isTrustedRendererUrl(url, this.#trustedRenderer)) event.preventDefault();
+    };
+    window.webContents.on('will-navigate', preventUntrustedNavigation);
+    window.webContents.on('will-redirect', preventUntrustedNavigation);
+
+    const developmentUrl = config.developmentServerUrl;
+    let rendererLoad: Promise<void>;
+    if (developmentUrl) {
+      this.#trustedRenderer = { mode: 'development', origin: developmentUrl.origin };
+      rendererLoad = window.loadURL(developmentUrl.href);
+    } else {
+      const rendererPath = join(import.meta.dirname, '../renderer/index.html');
+      this.#trustedRenderer = { mode: 'production', url: pathToFileURL(rendererPath).href };
+      rendererLoad = window.loadFile(rendererPath);
+    }
+    void rendererLoad.catch((value) => {
+      console.error('TinySA Flasher renderer failed to load', value);
+      dialog.showErrorBox('TinySA Flasher renderer could not load', errorMessage(value));
+      if (!window.isDestroyed()) window.destroy();
+      app.quit();
+    });
+    window.on('close', (event) => {
+      if (this.#allowWindowDestruction) return;
+      event.preventDefault();
+      void this.#requestWindowRelease(window);
+    });
+    window.on('closed', () => {
+      if (this.#window === window) {
+        this.#window = undefined;
+        this.#trustedRenderer = undefined;
+      }
+    });
+    return window;
+  }
+
+  async #requestWindowRelease(window: BrowserWindow): Promise<void> {
+    if (this.#windowReleaseInFlight || window.isDestroyed()) return;
+    const application = this.#application;
+    if (!application) return;
+    if (application.criticalSection !== 'none') {
+      window.show();
+      await dialog.showMessageBox(window, criticalSectionDialog());
       return;
     }
-    if (safeShutdownComplete || !shutdownDevice) return;
-    event.preventDefault();
-    if (safeShutdownStarted) return;
-    safeShutdownStarted = true;
-    void operationGate.whenIdle().then(() => operationGate.run('shutdown-disconnect', async () => {
-      if (shutdownDevice?.snapshot().connection !== 'disconnected') await shutdownDevice?.disconnect();
-    })).then(() => {
-      safeShutdownComplete = true;
-      app.quit();
-    }).catch((value) => {
-      safeShutdownStarted = false;
-      const options = {
-        type: 'error' as const,
-        title: 'Safe disconnect failed',
-        message: 'TinySA Flasher did not confirm RF output off and USB disconnect. The app will remain open.',
-        detail: message(value),
-        buttons: ['Return to TinySA Flasher'],
-      };
-      void (mainWindow ? dialog.showMessageBox(mainWindow, options) : dialog.showMessageBox(options));
-    });
-  });
-
-  void app.whenReady().then(startApplication).catch((value) => {
-    dialog.showErrorBox('TinySA Flasher could not start', message(value));
-    app.quit();
-  });
-}
-
-async function startApplication(): Promise<void> {
-  const userData = app.getPath('userData');
-  const applicationData = app.getPath('appData');
-  await migrateLegacyFirmwareState(join(userData, 'firmware'), [
-    join(applicationData, 'TinySA Atomizer', 'firmware'),
-    join(applicationData, 'TinySA Atomizer Dev', 'firmware'),
-  ]);
-
-  const device = new Zs407DeviceService();
-  shutdownDevice = device;
-  const updater = new FirmwareUpdater(join(userData, 'firmware'), device);
-  await updater.state();
-  registerIpc(device, updater);
-  mainWindow = createWindow();
-  mainWindow.on('close', (event) => {
-    if (!firmwareWriteBoundaryActive) return;
-    event.preventDefault();
-    mainWindow?.show();
-  });
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
-  });
-  app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-}
-
-function createWindow(): BrowserWindow {
-  const window = new BrowserWindow({
-    width: 980,
-    height: 760,
-    minWidth: 760,
-    minHeight: 640,
-    title: 'TinySA Flasher',
-    backgroundColor: '#080b10',
-    show: false,
-    webPreferences: {
-      preload: join(import.meta.dirname, 'preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-    },
-  });
-  window.once('ready-to-show', () => window.show());
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://tinysa.org/')) void shell.openExternal(url);
-    return { action: 'deny' };
-  });
-  const preventUntrustedNavigation = (event: Electron.Event, url: string) => {
-    if (!isTrustedRendererUrl(url, trustedRenderer)) event.preventDefault();
-  };
-  window.webContents.on('will-navigate', preventUntrustedNavigation);
-  window.webContents.on('will-redirect', preventUntrustedNavigation);
-  const developmentUrl = selectDevelopmentServerUrl(process.env.VITE_DEV_SERVER_URL, app.isPackaged);
-  let rendererLoad: Promise<void>;
-  if (developmentUrl) {
-    trustedRenderer = { developmentOrigin: developmentUrl.origin };
-    rendererLoad = window.loadURL(developmentUrl.href);
-  } else {
-    const rendererPath = join(import.meta.dirname, '../renderer/index.html');
-    trustedRenderer = { productionUrl: pathToFileURL(rendererPath).href };
-    rendererLoad = window.loadFile(rendererPath);
-  }
-  void rendererLoad.catch((value) => {
-    dialog.showErrorBox('TinySA Flasher renderer could not load', message(value));
-    if (!window.isDestroyed()) window.destroy();
-    app.quit();
-  });
-  return window;
-}
-
-function registerIpc(device: Zs407DeviceService, updater: FirmwareUpdater): void {
-  const gate = operationGate;
-  ipcMain.handle(IPC.listDevices, trusted(() => gate.run('list-devices', () => device.listDevices())));
-  ipcMain.handle(IPC.deviceState, trusted(() => gate.peek(() => device.snapshot())));
-  ipcMain.handle(IPC.connectDevice, trusted((_event, input: unknown) => gate.run('connect-device', async () => {
-    const connected = await device.connect(portCandidateSchema.parse(input));
-    await updater.state();
-    return connected;
-  })));
-  ipcMain.handle(IPC.disconnectDevice, trusted(() => gate.run('disconnect-device', async () => {
-    await device.disconnect();
-    await updater.state();
-    return device.snapshot();
-  })));
-  ipcMain.handle(IPC.updateState, trusted(() => gate.peek(() => updater.snapshot())));
-  ipcMain.handle(IPC.download, trusted(() => gate.run('download-firmware', () => updater.download())));
-  ipcMain.handle(IPC.prepare, trusted((_event, input: unknown) => gate.run('prepare-firmware', () => updater.prepare(firmwareUpdatePreflightSchema.parse(input)))));
-  ipcMain.handle(IPC.detectDfu, trusted(() => gate.run('detect-dfu', () => updater.detectDfu())));
-  ipcMain.handle(IPC.refreshPrerequisites, trusted(() => gate.run('refresh-prerequisites', () => updater.refreshPrerequisites())));
-  ipcMain.handle(IPC.flash, trusted(async (_event, preparationId: unknown) => gate.run('flash-firmware', async () => {
-    if (nativeFlashRequestInFlight) throw new Error('A native firmware confirmation or write request is already active');
-    nativeFlashRequestInFlight = true;
+    this.#windowReleaseInFlight = true;
     try {
-    if (typeof preparationId !== 'string') throw new TypeError('preparationId must be a string');
-    const state = updater.snapshot();
-    if (state.phase !== 'ready-to-flash' || state.preparation?.id !== preparationId) throw new Error('The renderer flash request does not match the active ready preparation');
-    const owner = mainWindow;
-    if (!owner) throw new Error('The trusted application window is unavailable');
-    const confirmation = await dialog.showMessageBox(owner, {
-      type: 'warning',
-      title: 'Write firmware to internal flash?',
-      message: 'This is the only action that writes the tinySA internal flash.',
-      detail: `TinySA Flasher will write only ${state.target.version}. Keep USB and power connected until post-reboot identity verification completes.`,
-      buttons: ['Cancel', 'Flash verified OEM firmware'],
-      defaultId: 0,
-      cancelId: 0,
-      noLink: true,
-    });
-      if (confirmation.response !== 1) return { status: 'cancelled' as const, state: updater.snapshot() };
-      firmwareWriteBoundaryActive = true;
-      try {
-        const completed = await updater.flash({ preparationId, confirmation: 'FLASH VERIFIED OEM FIRMWARE' });
-        return { status: 'completed' as const, state: completed };
-      } finally {
-        firmwareWriteBoundaryActive = false;
+      const result = await application.releaseForWindowClose();
+      if (result === 'blocked-critical') {
+        if (!window.isDestroyed()) await dialog.showMessageBox(window, criticalSectionDialog());
+        return;
       }
+      this.#allowWindowDestruction = true;
+      if (!window.isDestroyed()) window.destroy();
+    } catch (value) {
+      console.error('TinySA Flasher safe window release failed', value);
+      if (!window.isDestroyed()) await dialog.showMessageBox(window, safeDisconnectError(value));
     } finally {
-      nativeFlashRequestInFlight = false;
+      this.#windowReleaseInFlight = false;
     }
-  })));
+  }
+
+  async #requestSafeQuit(): Promise<void> {
+    if (this.#shutdownInFlight) return;
+    const application = this.#application;
+    if (!application) { this.#quitApproved = true; app.quit(); return; }
+    const window = this.#liveWindow();
+    if (application.criticalSection !== 'none') {
+      window?.show();
+      const options = criticalSectionDialog();
+      await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options));
+      return;
+    }
+    this.#shutdownInFlight = true;
+    try {
+      const result = await application.requestShutdown();
+      if (result === 'blocked-critical') return;
+      this.#quitApproved = true;
+      this.#allowWindowDestruction = true;
+      this.#removeIpc?.();
+      this.#removeIpc = undefined;
+      app.quit();
+    } catch (value) {
+      console.error('TinySA Flasher safe shutdown failed', value);
+      const options = safeDisconnectError(value);
+      await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options));
+    } finally {
+      this.#shutdownInFlight = false;
+    }
+  }
+
+  #liveWindow(): BrowserWindow | undefined {
+    return this.#window && !this.#window.isDestroyed() ? this.#window : undefined;
+  }
+
+  #isTrustedEvent(event: IpcMainInvokeEvent): boolean {
+    const window = this.#liveWindow();
+    return Boolean(window
+      && this.#trustedRenderer
+      && event.sender === window.webContents
+      && event.senderFrame === window.webContents.mainFrame
+      && isTrustedRendererUrl(event.senderFrame.url, this.#trustedRenderer));
+  }
 }
 
-function trusted<T extends readonly unknown[], R>(handler: (event: IpcMainInvokeEvent, ...args: T) => R): (event: IpcMainInvokeEvent, ...args: T) => R {
-  return (event, ...args) => {
-    if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame
-      || !isTrustedRendererUrl(event.senderFrame.url, trustedRenderer)) {
-      throw new Error('Rejected IPC from an untrusted renderer frame or origin');
-    }
-    return handler(event, ...args);
+async function runRuntimeSmoke(): Promise<void> {
+  const window = new BrowserWindow({
+    show: false,
+    webPreferences: secureRendererWebPreferences(),
+  });
+  denyRendererPermissions(window);
+  await window.loadFile(join(import.meta.dirname, '../renderer/index.html'));
+  const rendererState: unknown = await window.webContents.executeJavaScript(`new Promise((resolve) => {
+    const deadline = Date.now() + 5000;
+    const inspect = () => {
+      const api = window.tinySaFlasher;
+      const operations = api && Object.keys(api).sort();
+      const expected = ${JSON.stringify([
+        'capabilities', 'connectDevice', 'detectDfu', 'disconnectDevice', 'download', 'flash', 'prepare',
+        'recoverDevice', 'refreshPrerequisites', 'scanDevices', 'selectLocalFirmwareTarget',
+        'selectOemTarget', 'snapshot',
+      ].sort())};
+      const rendererLoaded = document.querySelector('#root h1')?.textContent === 'TinySA Flasher';
+      const preloadApi = Array.isArray(operations)
+        && operations.length === expected.length
+        && operations.every((operation, index) => operation === expected[index])
+        && operations.every((operation) => typeof api[operation] === 'function');
+      if (rendererLoaded && preloadApi) resolve({ rendererLoaded, preloadApi });
+      else if (Date.now() >= deadline) resolve({ rendererLoaded, preloadApi, operations });
+      else setTimeout(inspect, 25);
+    };
+    inspect();
+  })`, true);
+  if (!isSuccessfulRendererSmoke(rendererState)) {
+    throw new Error(`Packaged renderer/preload smoke failed: ${JSON.stringify(rendererState)}`);
+  }
+  window.destroy();
+  process.stdout.write(`TINYSA_FLASHER_RUNTIME_SMOKE_OK ${JSON.stringify({
+    name: app.getName(),
+    version: app.getVersion(),
+    packaged: app.isPackaged,
+    architecture: process.arch,
+    electron: process.versions.electron,
+    ...rendererState,
+  })}\n`);
+  app.exit(0);
+}
+
+function secureRendererWebPreferences(): WebPreferences {
+  return {
+    preload: join(import.meta.dirname, 'preload.cjs'),
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    webSecurity: true,
   };
 }
 
-function message(value: unknown): string { return value instanceof Error ? value.stack ?? value.message : String(value); }
+function denyRendererPermissions(window: BrowserWindow): void {
+  window.webContents.session.setPermissionCheckHandler(() => false);
+  window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+}
+
+function isSuccessfulRendererSmoke(value: unknown): value is { rendererLoaded: true; preloadApi: true } {
+  return typeof value === 'object'
+    && value !== null
+    && Reflect.get(value, 'rendererLoaded') === true
+    && Reflect.get(value, 'preloadApi') === true;
+}
+
+function criticalSectionDialog() {
+  return {
+    type: 'warning' as const,
+    title: 'Firmware safety operation in progress',
+    message: 'TinySA Flasher must remain open through confirmation, dfu-util exit, and post-reboot verification.',
+    buttons: ['Keep TinySA Flasher open'],
+  };
+}
+
+function safeDisconnectError(value: unknown) {
+  return {
+    type: 'error' as const,
+    title: 'Safe disconnect failed',
+    message: 'TinySA Flasher did not confirm RF output off and USB disconnect. The app will remain open.',
+    detail: errorMessage(value),
+    buttons: ['Return to TinySA Flasher'],
+  };
+}
+
+function isAllowedExternalUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && (url.hostname === 'tinysa.org' || url.hostname === 'www.tinysa.org');
+  } catch { return false; }
+}
+
+function errorMessage(value: unknown): string { return value instanceof Error ? value.message : String(value); }
+
+if (singleInstance) {
+  const host = new DesktopHost();
+  host.installLifecycle();
+  void app.whenReady().then(runtimeSmoke ? runRuntimeSmoke : () => host.start()).catch((value) => {
+    console.error('TinySA Flasher startup failed', value);
+    dialog.showErrorBox('TinySA Flasher could not start', errorMessage(value));
+    app.quit();
+  });
+}

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="shell" x1="150" y1="110" x2="860" y2="910" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1b2731"/>
+      <stop offset="0.52" stop-color="#0b1118"/>
+      <stop offset="1" stop-color="#06090d"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="334" y1="255" x2="706" y2="786" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#adfbff"/>
+      <stop offset="0.48" stop-color="#31d6df"/>
+      <stop offset="1" stop-color="#168f9a"/>
+    </linearGradient>
+    <linearGradient id="chip" x1="352" y1="610" x2="672" y2="803" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17323b"/>
+      <stop offset="1" stop-color="#0c1c23"/>
+    </linearGradient>
+    <filter id="shadow" x="20" y="30" width="984" height="994" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="30" stdDeviation="30" flood-color="#000" flood-opacity="0.52"/>
+    </filter>
+    <filter id="glow" x="220" y="130" width="590" height="700" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <rect x="76" y="64" width="872" height="872" rx="212" fill="url(#shell)"/>
+    <rect x="78" y="66" width="868" height="868" rx="210" fill="none" stroke="#74e9ef" stroke-opacity="0.18" stroke-width="4"/>
+    <path d="M178 330C220 190 337 119 488 108C360 145 268 225 221 354C205 396 190 412 176 408C162 404 164 380 178 330Z" fill="#fff" fill-opacity="0.035"/>
+  </g>
+  <g filter="url(#glow)" fill="url(#cyan)">
+    <rect x="329" y="238" width="54" height="178" rx="27" opacity="0.72"/>
+    <rect x="422" y="184" width="54" height="232" rx="27"/>
+    <rect x="515" y="275" width="54" height="141" rx="27" opacity="0.82"/>
+    <path d="M641 201a28 28 0 0 1 28 28v245h66c24 0 37 28 20 45L532 741a28 28 0 0 1-40 0L269 519c-17-17-5-45 20-45h66V439h56v62a29 29 0 0 1-29 29h-25l155 154 155-154h-26a28 28 0 0 1-28-28V229a28 28 0 0 1 28-28Z"/>
+  </g>
+  <g>
+    <rect x="339" y="704" width="346" height="132" rx="38" fill="url(#chip)" stroke="#31d6df" stroke-opacity="0.7" stroke-width="8"/>
+    <path d="M397 704v-42m76 42v-42m78 42v-42m76 42v-42M397 836v42m76-42v42m78-42v42m76-42v42" stroke="#5ce5ec" stroke-width="18" stroke-linecap="round" opacity="0.75"/>
+    <circle cx="512" cy="770" r="27" fill="#31d6df"/>
+    <circle cx="512" cy="770" r="10" fill="#e8feff"/>
+  </g>
+</svg>

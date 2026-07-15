@@ -1,0 +1,15 @@
+{
+  "$schema": "../schemas/firmware-release-v1.schema.json",
+  "$id": "https://physicistjohn.github.io/tinysa-flasher/contracts/releases/oem-zs407-c979386-v1.json",
+  "manifestVersion": 1,
+  "releaseId": "oem-zs407-c979386",
+  "product": "tinySA Ultra / Ultra+",
+  "version": "tinySA4_v1.4-224-gc979386",
+  "revision": "c979386",
+  "sourceCommit": "c97938697b6c7485e7cab50bca9af76996b7d671",
+  "publishedAt": "2026-05-06T11:33:12.000Z",
+  "downloadUrl": "http://dfu.tinydevices.org/tinySA4/DFU/tinySA4_v1.4-224-gc979386.bin",
+  "sha256": "3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41",
+  "sizeBytes": 185704,
+  "transportIntegrity": "pinned-sha256"
+}

@@ -1,0 +1,427 @@
+{
+  "$schema": "../schemas/interface-contract-v2.schema.json",
+  "contractId": "tinysa-flasher-renderer-ipc",
+  "contractVersion": 2,
+  "kind": "ipc",
+  "owner": "desktop-composition-root",
+  "provider": "trusted Electron main frame",
+  "consumers": [
+    "sandboxed preload bridge",
+    "renderer UI"
+  ],
+  "compatibility": "exact-version",
+  "typeDefinitions": {
+    "readonly []": {
+      "sourceModule": "src/main/ipc-contract.ts",
+      "runtimeContract": "capabilitiesIpcContract"
+    },
+    "IpcCapabilities": {
+      "sourceModule": "src/main/ipc-contract.ts",
+      "runtimeValidator": "ipcCapabilitiesSchema",
+      "typeExport": "IpcCapabilities",
+      "sourceSignature": "export type IpcCapabilities = z.infer<typeof ipcCapabilitiesSchema>;"
+    },
+    "ApplicationSnapshot": {
+      "sourceModule": "src/application/application-contract.ts",
+      "runtimeValidator": "applicationSnapshotSchema",
+      "typeExport": "ApplicationSnapshot",
+      "sourceSignature": "export type ApplicationSnapshot = z.infer<typeof applicationSnapshotSchema>;"
+    },
+    "ApplicationActionResult": {
+      "sourceModule": "src/application/application-contract.ts",
+      "runtimeValidator": "applicationActionResultSchema",
+      "typeExport": "ApplicationActionResult",
+      "sourceSignature": "export type ApplicationActionResult = z.infer<typeof applicationActionResultSchema>;"
+    },
+    "readonly [PortCandidate]": {
+      "sourceModule": "src/main/ipc-contract.ts",
+      "runtimeContract": "connectDeviceIpcContract"
+    },
+    "readonly [FirmwareUpdatePreflight]": {
+      "sourceModule": "src/main/ipc-contract.ts",
+      "runtimeContract": "prepareIpcContract"
+    },
+    "readonly [PreparationId]": {
+      "sourceModule": "src/main/ipc-contract.ts",
+      "runtimeContract": "flashIpcContract"
+    }
+  },
+  "capabilities": [
+    {
+      "capabilityId": "capabilities",
+      "channel": "flasher:contract:capabilities",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No arguments; extra arguments are rejected."
+      },
+      "output": {
+        "typeRef": "IpcCapabilities",
+        "description": "Exact protocol version and independently supported operation names."
+      },
+      "errors": [
+        {
+          "code": "IPC_PROTOCOL_MISMATCH",
+          "retryability": "never",
+          "description": "The preload and main process contract versions differ."
+        }
+      ],
+      "invariants": [
+        "Response protocolVersion is exactly 2 and operations exactly match the registry order."
+      ]
+    },
+    {
+      "capabilityId": "snapshot",
+      "channel": "flasher:application:snapshot",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No arguments; extra arguments are rejected."
+      },
+      "output": {
+        "typeRef": "ApplicationSnapshot",
+        "description": "One validated aggregate snapshot of device, updater, discovery, activity, and allowed actions."
+      },
+      "errors": [
+        {
+          "code": "OPERATION_FAILED",
+          "retryability": "never",
+          "description": "The application composition root could not produce a valid snapshot."
+        }
+      ],
+      "invariants": [
+        "Allowed actions are derived from the same device, updater, and activity state carried by the snapshot."
+      ]
+    },
+    {
+      "capabilityId": "scan-devices",
+      "channel": "flasher:application:scan-devices",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No arguments; extra arguments are rejected."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Completed scan outcome and a fresh aggregate application snapshot."
+      },
+      "errors": [
+        {
+          "code": "OPERATION_BUSY",
+          "retryability": "safe",
+          "description": "Another application operation is active or admission is draining."
+        }
+      ],
+      "invariants": [
+        "Every discovered candidate is revalidated and returned only inside the resulting aggregate snapshot."
+      ]
+    },
+    {
+      "capabilityId": "connect-device",
+      "channel": "flasher:application:connect-device",
+      "input": {
+        "typeRef": "readonly [PortCandidate]",
+        "description": "One current exact candidate selected from scan-devices."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Completed connection outcome and a fresh aggregate application snapshot."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "USB, firmware, command, telemetry, or RF-off admission failed."
+        }
+      ],
+      "invariants": [
+        "The main process validates the candidate before device admission and refreshes updater state after connection."
+      ]
+    },
+    {
+      "capabilityId": "disconnect-device",
+      "channel": "flasher:application:disconnect-device",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No arguments; extra arguments are rejected."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Completed disconnect outcome and a fresh aggregate application snapshot."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_SAFETY_FAULT",
+          "retryability": "conditional",
+          "description": "RF-off or serial close could not be confirmed."
+        }
+      ],
+      "invariants": [
+        "Failure never reports a safe disconnected state, and successful disconnect refreshes updater state."
+      ]
+    },
+    {
+      "capabilityId": "recover-device",
+      "channel": "flasher:application:recover-after-power-off",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No arguments; extra arguments are rejected."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Cancelled or completed native-confirmation outcome and a fresh aggregate application snapshot."
+      },
+      "errors": [
+        {
+          "code": "DEVICE_SAFETY_FAULT",
+          "retryability": "conditional",
+          "description": "The fault is not eligible for physical power-off recovery."
+        }
+      ],
+      "invariants": [
+        "Recovery is attempted only after an independent native confirmation that the analyzer was physically powered off."
+      ]
+    },
+    {
+      "capabilityId": "select-oem-target",
+      "channel": "flasher:application:select-oem-target",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No arguments; extra arguments are rejected."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Completed OEM target selection and a fresh aggregate snapshot."
+      },
+      "errors": [
+        {
+          "code": "UPDATE_PRECONDITION_FAILED",
+          "retryability": "conditional",
+          "description": "Target selection is locked by preparation or write state."
+        }
+      ],
+      "invariants": [
+        "Main-process policy admits target changes only before preparation."
+      ]
+    },
+    {
+      "capabilityId": "select-local-firmware-target",
+      "channel": "flasher:application:select-local-firmware-target",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No path or other renderer-controlled argument is accepted."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Cancelled or completed native file selection and a fresh aggregate snapshot."
+      },
+      "errors": [
+        {
+          "code": "OPERATION_FAILED",
+          "retryability": "never",
+          "description": "Native selection or strict local build admission failed."
+        }
+      ],
+      "invariants": [
+        "Only native main receives the selected path; renderer IPC carries neither a path nor raw manifest bytes."
+      ]
+    },
+    {
+      "capabilityId": "download",
+      "channel": "flasher:application:download",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No arguments; extra arguments are rejected."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Completed download outcome and a fresh aggregate application snapshot."
+      },
+      "errors": [
+        {
+          "code": "UPDATE_PRECONDITION_FAILED",
+          "retryability": "conditional",
+          "description": "No admitted outdated physical device is connected, or the update state forbids download."
+        },
+        {
+          "code": "FIRMWARE_SOURCE_FAILED",
+          "retryability": "safe",
+          "description": "The pinned firmware artifact could not be fetched or verified."
+        }
+      ],
+      "invariants": [
+        "Only the exact-length, pinned-SHA OEM artifact can enter verified state, and this operation is unavailable for local-custom targets."
+      ]
+    },
+    {
+      "capabilityId": "prepare",
+      "channel": "flasher:application:prepare",
+      "input": {
+        "typeRef": "readonly [FirmwareUpdatePreflight]",
+        "description": "All exact human preflight attestations."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Completed preparation outcome and a fresh aggregate application snapshot."
+      },
+      "errors": [
+        {
+          "code": "PREFLIGHT_FAILED",
+          "retryability": "conditional",
+          "description": "Diagnostics, battery, screen capture, evidence persistence, or safe disconnect failed."
+        }
+      ],
+      "invariants": [
+        "Preparation evidence is persisted before the admitted CDC session is disconnected."
+      ]
+    },
+    {
+      "capabilityId": "detect-dfu",
+      "channel": "flasher:application:detect-dfu",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No arguments; extra arguments are rejected."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Completed DFU detection outcome and a fresh aggregate application snapshot."
+      },
+      "errors": [
+        {
+          "code": "DFU_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "Tool or physical DFU target admission failed."
+        }
+      ],
+      "invariants": [
+        "Ready state contains one canonical alt-0 internal-flash identity."
+      ]
+    },
+    {
+      "capabilityId": "refresh-prerequisites",
+      "channel": "flasher:application:refresh-prerequisites",
+      "input": {
+        "typeRef": "readonly []",
+        "description": "No arguments; extra arguments are rejected."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Completed prerequisite refresh outcome and a fresh aggregate application snapshot."
+      },
+      "errors": [
+        {
+          "code": "DFU_ADMISSION_FAILED",
+          "retryability": "conditional",
+          "description": "The DFU utility prerequisite could not be admitted."
+        }
+      ],
+      "invariants": [
+        "Available means the selected executable reports exactly dfu-util 0.11."
+      ]
+    },
+    {
+      "capabilityId": "flash",
+      "channel": "flasher:application:flash",
+      "input": {
+        "typeRef": "readonly [PreparationId]",
+        "description": "The active UUID preparation selected by the renderer."
+      },
+      "output": {
+        "typeRef": "ApplicationActionResult",
+        "description": "Cancelled or completed native-confirmation outcome and a fresh aggregate application snapshot."
+      },
+      "errors": [
+        {
+          "code": "WRITE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "A write may have started and cannot be retried automatically."
+        },
+        {
+          "code": "EVIDENCE_INDETERMINATE",
+          "retryability": "manual-inspection",
+          "description": "Durable transaction evidence does not support a safe write attempt."
+        }
+      ],
+      "invariants": [
+        "The main process supplies the target-kind-specific internal confirmation literal only after independent native confirmation."
+      ]
+    }
+  ],
+  "sourceProjections": [
+    {
+      "sourceModule": "src/main/ipc-contract.ts",
+      "symbol": "IPC_CONTRACTS",
+      "symbolKind": "ipc-registry",
+      "members": [
+        {
+          "sourceMember": "capabilities",
+          "capabilityId": "capabilities",
+          "sourceSignature": "capabilities: capabilitiesIpcContract(operation='capabilities', channel='flasher:contract:capabilities', input=noArgumentsSchema, output=ipcCapabilitiesSchema)"
+        },
+        {
+          "sourceMember": "snapshot",
+          "capabilityId": "snapshot",
+          "sourceSignature": "snapshot: snapshotIpcContract(operation='snapshot', channel='flasher:application:snapshot', input=noArgumentsSchema, output=applicationSnapshotSchema)"
+        },
+        {
+          "sourceMember": "scanDevices",
+          "capabilityId": "scan-devices",
+          "sourceSignature": "scanDevices: scanDevicesIpcContract(operation='scanDevices', channel='flasher:application:scan-devices', input=noArgumentsSchema, output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "connectDevice",
+          "capabilityId": "connect-device",
+          "sourceSignature": "connectDevice: connectDeviceIpcContract(operation='connectDevice', channel='flasher:application:connect-device', input=z.tuple([portCandidateSchema]), output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "disconnectDevice",
+          "capabilityId": "disconnect-device",
+          "sourceSignature": "disconnectDevice: disconnectDeviceIpcContract(operation='disconnectDevice', channel='flasher:application:disconnect-device', input=noArgumentsSchema, output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "recoverDevice",
+          "capabilityId": "recover-device",
+          "sourceSignature": "recoverDevice: recoverDeviceIpcContract(operation='recoverDevice', channel='flasher:application:recover-after-power-off', input=noArgumentsSchema, output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "selectOemTarget",
+          "capabilityId": "select-oem-target",
+          "sourceSignature": "selectOemTarget: selectOemTargetIpcContract(operation='selectOemTarget', channel='flasher:application:select-oem-target', input=noArgumentsSchema, output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "selectLocalFirmwareTarget",
+          "capabilityId": "select-local-firmware-target",
+          "sourceSignature": "selectLocalFirmwareTarget: selectLocalFirmwareTargetIpcContract(operation='selectLocalFirmwareTarget', channel='flasher:application:select-local-firmware-target', input=noArgumentsSchema, output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "download",
+          "capabilityId": "download",
+          "sourceSignature": "download: downloadIpcContract(operation='download', channel='flasher:application:download', input=noArgumentsSchema, output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "prepare",
+          "capabilityId": "prepare",
+          "sourceSignature": "prepare: prepareIpcContract(operation='prepare', channel='flasher:application:prepare', input=z.tuple([firmwareUpdatePreflightSchema]), output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "detectDfu",
+          "capabilityId": "detect-dfu",
+          "sourceSignature": "detectDfu: detectDfuIpcContract(operation='detectDfu', channel='flasher:application:detect-dfu', input=noArgumentsSchema, output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "refreshPrerequisites",
+          "capabilityId": "refresh-prerequisites",
+          "sourceSignature": "refreshPrerequisites: refreshPrerequisitesIpcContract(operation='refreshPrerequisites', channel='flasher:application:refresh-prerequisites', input=noArgumentsSchema, output=applicationActionResultSchema)"
+        },
+        {
+          "sourceMember": "flash",
+          "capabilityId": "flash",
+          "sourceSignature": "flash: flashIpcContract(operation='flash', channel='flasher:application:flash', input=z.tuple([uuidSchema]), output=applicationActionResultSchema)"
+        }
+      ]
+    }
+  ],
+  "sourceOfTruth": [
+    "src/application/application-contract.ts",
+    "src/main/ipc-contract.ts",
+    "src/main/ipc-handlers.ts",
+    "src/main/preload.ts"
+  ]
+}

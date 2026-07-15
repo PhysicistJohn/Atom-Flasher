@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Zs407DeviceService, bindCurrentExactCandidate, parseBattery, parseDeviceId, parseHelpCommands, parseIdentity, type DeviceTransport } from '../src/device/device-service.js';
+import { MANUAL_POWER_OFF_CONFIRMATION, Zs407DeviceService, bindCurrentExactCandidate, parseBattery, parseDeviceId, parseHelpCommands, parseIdentity, type DeviceTransport } from '../src/device/device-service.js';
 import type { PortCandidate } from '../src/core/contracts.js';
 import type { TransportEvent } from '../src/device/protocol.js';
 
@@ -58,6 +58,9 @@ describe('minimal ZS407 admission service', () => {
     expect(service.snapshot()).toEqual({ connection: 'faulted', fault: 'USB cable removed' });
     await expect(service.disconnect()).rejects.toThrow(/output off remains unconfirmed/i);
     expect(service.snapshot()).toMatchObject({ connection: 'faulted', fault: expect.stringMatching(/power the analyzer off manually/i) });
+    await expect(service.recoverAfterManualPowerOff('wrong' as never)).rejects.toThrow(/exact manual power-off/i);
+    await expect(service.recoverAfterManualPowerOff(MANUAL_POWER_OFF_CONFIRMATION)).resolves.toMatchObject({ connection: 'disconnected' });
+    await expect(service.connect(port)).resolves.toMatchObject({ connection: 'ready' });
   });
 
   it('surfaces connection cleanup failure as an aggregate fault', async () => {
@@ -66,6 +69,17 @@ describe('minimal ZS407 admission service', () => {
 
     await expect(service.connect(port)).rejects.toBeInstanceOf(AggregateError);
     expect(service.snapshot()).toMatchObject({ connection: 'faulted', fault: expect.stringMatching(/cleanup also failed/i) });
+  });
+
+  it('does not overwrite a transport fault that arrives while open is completing', async () => {
+    const transport = new ScriptedTransport({ faultDuringOpen: 'USB disappeared during open' });
+    const service = new Zs407DeviceService(transport);
+
+    await expect(service.connect(port)).rejects.toThrow(/USB disappeared during open/i);
+    expect(service.snapshot()).toMatchObject({
+      connection: 'faulted',
+      fault: expect.stringMatching(/power the analyzer off manually/i),
+    });
   });
 
   it('latches an unconfirmed output-off disconnect as a manual safety fault', async () => {
@@ -86,16 +100,20 @@ class ScriptedTransport implements DeviceTransport {
   #outputOffCount = 0;
   #closeFailures: number;
 
-  constructor(private readonly options: { version?: string; closeFailures?: number; failOutputOffAt?: number } = {}) {
+  constructor(private readonly options: { version?: string; closeFailures?: number; failOutputOffAt?: number; faultDuringOpen?: string } = {}) {
     this.#closeFailures = options.closeFailures ?? 0;
   }
 
   async list(): Promise<PortCandidate[]> { return [port]; }
-  async open(): Promise<void> { this.emit({ type: 'opened' }); }
+  async open(): Promise<void> {
+    this.emit({ type: 'opened' });
+    if (this.options.faultDuringOpen) this.emit({ type: 'error', error: new Error(this.options.faultDuringOpen) });
+  }
   async close(): Promise<void> {
     if (this.#closeFailures > 0) { this.#closeFailures -= 1; throw new Error('fixture close cleanup failed'); }
     this.emit({ type: 'closed', reason: 'closed by test' });
   }
+  async discardInput(): Promise<void> {}
   async write(bytes: Uint8Array): Promise<void> {
     const command = new TextDecoder().decode(bytes).replace(/\r$/, '');
     if (command === 'output off') {
