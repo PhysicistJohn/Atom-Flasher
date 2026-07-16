@@ -65,6 +65,16 @@ A single legacy journal and its safety artifacts—including completed-ledger hi
 - npm `10.9.8`
 - `dfu-util 0.11` for a physical update (`brew install dfu-util`)
 
+## Install
+
+This source repository is private; built releases are published separately and publicly at [PhysicistJohn/TinySA_Flasher-releases](https://github.com/PhysicistJohn/TinySA_Flasher-releases). Full install instructions, signing status, and checksum verification live in that repo's README — this section is a pointer, not a duplicate, so it can't drift out of sync.
+
+```sh
+brew install --cask physicistjohn/tinysa-flasher/tinysa-flasher
+```
+
+TinySA Flasher currently ships ad-hoc signed, not notarized; see the releases repo for what that means and how to verify a download.
+
 ## Development
 
 Dependencies are version-pinned directly in this repository.

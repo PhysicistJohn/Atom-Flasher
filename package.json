@@ -2,6 +2,7 @@
   "name": "tinysa-flasher",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "author": "PhysicistJohn",
   "description": "Fail-closed standalone firmware updater for tinySA Ultra / Ultra+ ZS407",
   "type": "module",

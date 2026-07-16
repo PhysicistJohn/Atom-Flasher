@@ -1,0 +1,69 @@
+name: Release
+
+"on":
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package and publish (Node 22.23.1, npm 10.9.8)
+    runs-on: macos-15
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Pin npm
+        run: npm install --global npm@10.9.8
+
+      - name: Verify toolchain
+        shell: bash
+        run: |
+          test "$(node --version)" = "v$(cat .node-version)"
+          test "$(npm --version)" = "10.9.8"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Full check, ad-hoc package, checksum, and isolated runtime smoke
+        run: npm run package:mac
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=low
+
+      - name: Publish ad-hoc-signed release artifacts to the public releases repo
+        env:
+          # The default GITHUB_TOKEN is scoped to this (private) repo only.
+          # Publishing into the separate public releases repo requires a
+          # fine-grained PAT, scoped to that repo only (contents: write),
+          # stored as the RELEASES_REPO_TOKEN secret. See docs/RELEASING.md.
+          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create "${{ github.ref_name }}" \
+            --repo PhysicistJohn/TinySA_Flasher-releases \
+            --title "TinySA Flasher ${{ github.ref_name }}" \
+            --notes-file docs/RELEASE_NOTES_TEMPLATE.md \
+            --draft \
+            release/*.dmg \
+            release/*.zip \
+            release/SHA256SUMS \
+            release/PACKAGE-INSPECTION.json \
+            release/BUILD-PROVENANCE.json

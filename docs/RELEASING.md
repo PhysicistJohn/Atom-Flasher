@@ -43,6 +43,20 @@ The repository contains no Developer ID or notarization credentials. `npm run pa
 
 An ad-hoc-signed artifact will trigger macOS trust warnings and is not suitable as a public release. A public macOS release requires an authorized Developer ID Application identity, hardened-runtime signing of the app and nested native code, Apple notarization, stapling, and independent `codesign --verify --deep --strict` plus Gatekeeper assessment of the final app. Supply secrets only through the authorized release environment; never add certificates, passwords, API keys, profiles, or notarization credentials to the repository or command history. The authorized release workflow must fail when any signature, notarization ticket, or assessment is missing. After signing/notarization changes the artifact bytes, regenerate and verify `SHA256SUMS`.
 
+### Current distribution decision
+
+The source repository (`PhysicistJohn/TinySA_Flasher`) is private. Built artifacts are published separately to the public `PhysicistJohn/TinySA_Flasher-releases` repo, which holds only GitHub Releases (DMG, ZIP, `SHA256SUMS`, `PACKAGE-INSPECTION.json`, `BUILD-PROVENANCE.json`) and its own public-facing README with install/verification instructions — never source. Public distribution ships the ad-hoc build described above through a Homebrew Cask (`physicistjohn/tinysa-flasher/tinysa-flasher`) pointed at that releases repo, rather than an unsigned direct download alone. Homebrew's cask downloader does not apply the browser quarantine attribute that triggers Gatekeeper's "unidentified developer" dialog, so this removes the install-time prompt for that install path without changing the underlying trust posture: there is still no Developer ID signature and no Apple notarization, and users who download the DMG directly (outside Homebrew) will still see the standard Gatekeeper block.
+
+`.github/workflows/release.yml` publishes to the separate public repo on every `v*` tag push. The default `GITHUB_TOKEN` cannot write to a different repository, so this requires a fine-grained personal access token scoped to only `PhysicistJohn/TinySA_Flasher-releases` with `contents: write`, stored as the `RELEASES_REPO_TOKEN` secret on this (private) repo. Create it at github.com under Settings → Developer settings → Fine-grained tokens, then:
+
+```sh
+gh secret set RELEASES_REPO_TOKEN --repo PhysicistJohn/TinySA_Flasher --app actions
+```
+
+The workflow always opens the release as a **draft**: the notes template has placeholders (commit, checksums, physical qualification disposition) that must be filled in by a maintainer before publishing. Never widen the token's scope beyond that one repository, and never commit it.
+
+Enrolling in the Apple Developer Program ($99/year) and building the authorized signed/notarized workflow described above remains the correct upgrade path if distribution scope grows. That workflow must be added as a separately reviewed configuration and smoke policy per the paragraph above — do not retrofit conditional signing into `tools/after-pack.mjs`, `tools/release-gate.mjs`, or `npm run package:mac`, which exist specifically to make the ad-hoc/local-test claim unambiguous.
+
 ## Physical qualification
 
 Automated checks do not flash hardware. Follow the dedicated physical-hardware procedure in [CONTRIBUTING.md](../CONTRIBUTING.md) only with an authorized recovery-capable ZS407 unit. Record whether physical qualification was performed. If it was not performed, label the build software-qualified only; do not imply that it is hardware release-qualified.
