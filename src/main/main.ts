@@ -21,6 +21,10 @@ import {
   developmentHostLifetimeDescriptor,
 } from './development-host-lifetime.js';
 import { ElectronSafetyPrompts } from './electron-safety-prompts.js';
+import {
+  createFirmwareManifestDirectoryMemory,
+  initialFirmwareManifestDirectory,
+} from './firmware-manifest-directory.js';
 import { registerApplicationIpc } from './ipc-handlers.js';
 import { LocalFirmwareTargetPicker } from './local-firmware-target-picker.js';
 import { isTrustedRendererUrl, type RendererTrust } from './security.js';
@@ -102,24 +106,46 @@ class DesktopHost {
     });
     const prompts = new ElectronSafetyPrompts(() => this.#liveWindow());
     const localBuildStore = new LocalFirmwareBuildStore(firmwareDirectory);
-    const targetPicker = new LocalFirmwareTargetPicker(
+    const manifestDirectory = createFirmwareManifestDirectoryMemory(
+      await initialFirmwareManifestDirectory(process.cwd()),
+    );
+    const nativeTargetPicker = new LocalFirmwareTargetPicker(
       () => this.#liveWindow(),
       {
         chooseManifest: async (parent) => {
+          const defaultPath = manifestDirectory.defaultPath();
           const options: OpenDialogOptions = {
             title: 'Select a TinySA_Firmware build manifest',
             buttonLabel: 'Verify build manifest',
+            ...(defaultPath ? { defaultPath } : {}),
             properties: ['openFile', 'dontAddToRecent'],
             filters: [{ name: 'TinySA firmware build manifest', extensions: ['json'] }],
           };
           const selected = parent
             ? await dialog.showOpenDialog(parent, options)
             : await dialog.showOpenDialog(options);
-          return selected.canceled || selected.filePaths.length !== 1 ? undefined : selected.filePaths[0];
+          const selectedPath = selected.canceled || selected.filePaths.length !== 1 ? undefined : selected.filePaths[0];
+          manifestDirectory.selected(selectedPath);
+          return selectedPath;
         },
       },
       localBuildStore,
     );
+    const targetPicker = {
+      selectLocalFirmwareTarget: async () => {
+        try {
+          const selection = await nativeTargetPicker.selectLocalFirmwareTarget();
+          manifestDirectory.settled(selection !== undefined);
+          return selection;
+        } catch (cause) {
+          manifestDirectory.settled(false);
+          throw cause;
+        }
+      },
+      reopenLocalFirmwareTarget: (target: Parameters<LocalFirmwareTargetPicker['reopenLocalFirmwareTarget']>[0]) => (
+        nativeTargetPicker.reopenLocalFirmwareTarget(target)
+      ),
+    };
     const recovered = await updater.state();
     if (recovered.target.kind === 'local-custom'
       && recovered.preparation
