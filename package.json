@@ -35,7 +35,9 @@
     "artifacts:verify": "node tools/release-artifacts.mjs verify",
     "smoke:package": "node tools/smoke-package.mjs",
     "check": "npm run lint && npm run check:contracts && npm run typecheck && npm run test:coverage && npm run test:release-tools && npm run build",
-    "package:mac": "npm run release:begin && npm run clean:release && npm run check && npm run release:checkpoint && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip && npm run release:checkpoint && npm run smoke:package && npm run artifacts:provenance && npm run artifacts:checksums && npm run artifacts:verify && npm run artifacts:provenance:verify && npm run release:finish"
+    "package:mac": "npm run release:begin && npm run clean:release && npm run check && npm run release:checkpoint && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip && npm run release:checkpoint && npm run smoke:package && npm run artifacts:provenance && npm run artifacts:checksums && npm run artifacts:verify && npm run artifacts:provenance:verify && npm run release:finish",
+    "package:win": "npm run release:begin && npm run clean:release && npm run check && npm run release:checkpoint && electron-builder --win nsis portable && npm run release:checkpoint && npm run artifacts:checksums && npm run artifacts:verify && npm run release:finish",
+    "package:linux": "npm run release:begin && npm run clean:release && npm run check && npm run release:checkpoint && electron-builder --linux AppImage && npm run release:checkpoint && npm run artifacts:checksums && npm run artifacts:verify && npm run release:finish"
   },
   "dependencies": {
     "react": "19.2.7",
@@ -72,8 +74,8 @@
     "npm": "10.9.8"
   },
   "build": {
-    "appId": "com.physicistjohn.tinysa-flasher",
-    "productName": "TinySA Flasher",
+    "appId": "com.physicistjohn.flasher",
+    "productName": "Flasher",
     "afterPack": "./tools/after-pack.mjs",
     "directories": {
       "output": "release"
@@ -86,7 +88,7 @@
     ],
     "mac": {
       "category": "public.app-category.utilities",
-      "icon": "assets/TinySAFlasherIcon.png",
+      "icon": "build/icon.icns",
       "minimumSystemVersion": "12.0",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -109,6 +111,20 @@
         "dmg",
         "zip"
       ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Utility",
+      "target": ["AppImage"]
     }
   }
 }

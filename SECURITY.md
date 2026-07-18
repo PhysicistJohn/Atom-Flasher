@@ -1,6 +1,6 @@
 # Security policy
 
-TinySA Flasher controls a physical firmware-write boundary. Treat vulnerabilities that can weaken device admission, firmware authenticity, operator confirmation, durable write evidence, process isolation, or post-write verification as safety issues as well as security issues.
+Flasher controls a physical firmware-write boundary. Treat vulnerabilities that can weaken device admission, firmware authenticity, operator confirmation, durable write evidence, process isolation, or post-write verification as safety issues as well as security issues.
 
 ## Supported code
 

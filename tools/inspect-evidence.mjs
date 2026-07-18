@@ -312,9 +312,9 @@ function parseArguments(argv) {
 }
 
 function defaultEvidencePath() {
-  if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'TinySA Flasher', 'firmware');
-  if (process.platform === 'win32') return join(process.env.APPDATA ?? homedir(), 'TinySA Flasher', 'firmware');
-  return join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'TinySA Flasher', 'firmware');
+  if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'Flasher', 'firmware');
+  if (process.platform === 'win32') return join(process.env.APPDATA ?? homedir(), 'Flasher', 'firmware');
+  return join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'Flasher', 'firmware');
 }
 
 function printHuman(report) {

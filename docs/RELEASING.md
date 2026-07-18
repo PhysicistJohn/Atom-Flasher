@@ -1,4 +1,4 @@
-# Releasing TinySA Flasher
+# Releasing Flasher
 
 This repository currently packages macOS 12+ DMG and ZIP artifacts. A locally built package is a test artifact until signing, notarization, hardware qualification, and release provenance are recorded.
 

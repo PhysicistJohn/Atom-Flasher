@@ -1,6 +1,6 @@
-# TinySA Flasher
+# Flasher
 
-TinySA Flasher is a focused, standalone desktop updater for the physical **tinySA Ultra / Ultra+ ZS407**. It has no runtime or build-time dependency on the TinySA/Atomizer repository.
+Flasher is a focused, standalone desktop updater for the physical **tinySA Ultra / Ultra+ ZS407**. It has no runtime or build-time dependency on the TinySA/Atomizer repository.
 
 The application has one pinned OEM release. It is the only network-acquired target and the default restore/update target:
 
@@ -22,7 +22,7 @@ The operator may instead select a manifested local custom build from `PhysicistJ
 
 ## Safety model
 
-TinySA Flasher fails closed at every write boundary:
+Flasher fails closed at every write boundary:
 
 - Physical admission requires exact USB CDC identity `0483:5740`, a ZS407 hardware response, a source revision, the required command surface, and `output off` before and after identification.
 - Preflight records battery voltage, device ID, USB path/serial evidence, the exact LCD capture hash, image hash, and the local human’s self-test/RF-disconnection attestations.
@@ -41,13 +41,13 @@ TinySA Flasher fails closed at every write boundary:
 
 USB CDC and STM32 DFU do not expose a publicly proven common identifier on this hardware. The app records both identities and combines one-device admission, the local only-update-device attestation, exact DFU re-enumeration, and post-reboot CDC/device-ID checks. It does not claim that the CDC and DFU identifiers are cryptographically equivalent.
 
-USB ownership is session-scoped. Atomizer owns normal CDC analyzer/generator operation; TinySA Flasher owns CDC discovery/preflight, DFU admission/write, and CDC post-write verification for the complete update session. Never let both applications access the same physical device: disconnect or close Atomizer before starting an update and finish or safely exit Flasher before reconnecting Atomizer.
+USB ownership is session-scoped. Atomizer owns normal CDC analyzer/generator operation; Flasher owns CDC discovery/preflight, DFU admission/write, and CDC post-write verification for the complete update session. Never let both applications access the same physical device: disconnect or close Atomizer before starting an update and finish or safely exit Flasher before reconnecting Atomizer.
 
 If the app restarts with a prepared, not-started custom transaction, it first attempts to reopen the exact content-addressed manifest and binary from app-owned storage. If either file is absent or no longer reproduces the persisted target, flashing remains unavailable until the operator re-admits that exact manifest through the native picker. Cancellation changes no updater state; selecting a different target cannot retarget the preparation. Unprepared custom selections are intentionally not journaled and must be selected again after restart.
 
 ### External `dfu-util` trust boundary
 
-TinySA Flasher does **not** bundle or cryptographically pin `dfu-util`. It discovers an externally installed executable from an explicit `TINYSA_DFU_UTIL` path or a bounded standard/PATH search and rejects version output other than `0.11`. The executable itself remains part of the host trust boundary. Packaging a vetted copy would require a separate provenance, update, source-offer, and GPL compliance design; the current application deliberately documents this boundary instead of claiming a hermetic flashing engine.
+Flasher does **not** bundle or cryptographically pin `dfu-util`. It discovers an externally installed executable from an explicit `TINYSA_DFU_UTIL` path or a bounded standard/PATH search and rejects version output other than `0.11`. The executable itself remains part of the host trust boundary. Packaging a vetted copy would require a separate provenance, update, source-offer, and GPL compliance design; the current application deliberately documents this boundary instead of claiming a hermetic flashing engine.
 
 ## Prior Atomizer journals
 
@@ -73,7 +73,7 @@ This source repository is private; built releases are published separately and p
 brew install --cask physicistjohn/tinysa-flasher/tinysa-flasher
 ```
 
-TinySA Flasher currently ships ad-hoc signed, not notarized; see the releases repo for what that means and how to verify a download.
+Flasher currently ships ad-hoc signed, not notarized; see the releases repo for what that means and how to verify a download.
 
 ## Development
 
@@ -128,7 +128,7 @@ The override must be executable and must identify itself as exactly `dfu-util 0.
 
 ## Manual recovery
 
-On macOS, production evidence lives under `~/Library/Application Support/TinySA Flasher/firmware/`. Inventory a copied or in-place evidence directory without changing it:
+On macOS, production evidence lives under `~/Library/Application Support/Flasher/firmware/`. Inventory a copied or in-place evidence directory without changing it:
 
 ```sh
 npm run inspect:evidence -- --path "/absolute/path/to/firmware"

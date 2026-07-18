@@ -29,7 +29,7 @@ import { registerApplicationIpc } from './ipc-handlers.js';
 import { LocalFirmwareTargetPicker } from './local-firmware-target-picker.js';
 import { isTrustedRendererUrl, type RendererTrust } from './security.js';
 
-app.setName('TinySA Flasher');
+app.setName('Flasher');
 const isolatedDeveloperData = !app.isPackaged && process.env.TINYSA_FLASHER_DEV_USER_DATA
   ? process.env.TINYSA_FLASHER_DEV_USER_DATA
   : undefined;
@@ -94,6 +94,7 @@ class DesktopHost {
     const applicationData = app.getPath('appData');
     if (!isolatedDeveloperData) {
       await migrateLegacyFirmwareState(join(userData, 'firmware'), [
+        join(applicationData, 'Flasher', 'firmware'),
         join(applicationData, 'TinySA Atomizer', 'firmware'),
         join(applicationData, 'TinySA Atomizer Dev', 'firmware'),
       ]);
@@ -182,7 +183,7 @@ class DesktopHost {
       height: 760,
       minWidth: 760,
       minHeight: 640,
-      title: 'TinySA Flasher',
+      title: 'Flasher',
       backgroundColor: '#080b10',
       show: false,
       webPreferences: secureRendererWebPreferences(),
@@ -213,8 +214,8 @@ class DesktopHost {
       rendererLoad = window.loadFile(rendererPath);
     }
     void rendererLoad.catch((value) => {
-      console.error('TinySA Flasher renderer failed to load', value);
-      dialog.showErrorBox('TinySA Flasher renderer could not load', errorMessage(value));
+      console.error('Flasher renderer failed to load', value);
+      dialog.showErrorBox('Flasher renderer could not load', errorMessage(value));
       if (!window.isDestroyed()) window.destroy();
       app.quit();
     });
@@ -251,7 +252,7 @@ class DesktopHost {
       this.#allowWindowDestruction = true;
       if (!window.isDestroyed()) window.destroy();
     } catch (value) {
-      console.error('TinySA Flasher safe window release failed', value);
+      console.error('Flasher safe window release failed', value);
       if (!window.isDestroyed()) await dialog.showMessageBox(window, safeDisconnectError(value));
     } finally {
       this.#windowReleaseInFlight = false;
@@ -285,7 +286,7 @@ class DesktopHost {
       this.#disposeDevelopmentHostLifetime();
       app.quit();
     } catch (value) {
-      console.error('TinySA Flasher safe shutdown failed', value);
+      console.error('Flasher safe shutdown failed', value);
       const options = safeDisconnectError(value);
       await (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options));
     } finally {
@@ -318,7 +319,7 @@ class DesktopHost {
   #quarantineDevelopmentRenderer(reason: string): void {
     if (this.#developmentRendererQuarantined) return;
     this.#developmentRendererQuarantined = true;
-    console.error(`${reason}. TinySA Flasher revoked the development renderer and will not recreate it.`);
+    console.error(`${reason}. Flasher revoked the development renderer and will not recreate it.`);
     // Removing handlers and trust is synchronous and does not cancel an IPC
     // operation that already crossed into the main-process application. A
     // confirmed firmware write/post-write verification therefore continues to
@@ -356,7 +357,7 @@ async function runRuntimeSmoke(): Promise<void> {
         'recoverDevice', 'refreshPrerequisites', 'scanDevices', 'selectLocalFirmwareTarget',
         'selectOemTarget', 'snapshot',
       ].sort())};
-      const rendererLoaded = document.querySelector('#root h1')?.textContent === 'TinySA Flasher';
+      const rendererLoaded = document.querySelector('#root h1')?.textContent === 'Flasher';
       const preloadApi = Array.isArray(operations)
         && operations.length === expected.length
         && operations.every((operation, index) => operation === expected[index])
@@ -408,8 +409,8 @@ function criticalSectionDialog() {
   return {
     type: 'warning' as const,
     title: 'Firmware safety operation in progress',
-    message: 'TinySA Flasher must remain open through confirmation, dfu-util exit, and post-reboot verification.',
-    buttons: ['Keep TinySA Flasher open'],
+    message: 'Flasher must remain open through confirmation, dfu-util exit, and post-reboot verification.',
+    buttons: ['Keep Flasher open'],
   };
 }
 
@@ -417,9 +418,9 @@ function safeDisconnectError(value: unknown) {
   return {
     type: 'error' as const,
     title: 'Safe disconnect failed',
-    message: 'TinySA Flasher did not confirm RF output off and USB disconnect. The app will remain open.',
+    message: 'Flasher did not confirm RF output off and USB disconnect. The app will remain open.',
     detail: errorMessage(value),
-    buttons: ['Return to TinySA Flasher'],
+    buttons: ['Return to Flasher'],
   };
 }
 
@@ -436,8 +437,8 @@ if (singleInstance) {
   const host = new DesktopHost();
   host.installLifecycle();
   void app.whenReady().then(runtimeSmoke ? runRuntimeSmoke : () => host.start()).catch((value) => {
-    console.error('TinySA Flasher startup failed', value);
-    dialog.showErrorBox('TinySA Flasher could not start', errorMessage(value));
+    console.error('Flasher startup failed', value);
+    dialog.showErrorBox('Flasher could not start', errorMessage(value));
     app.quit();
   });
 }

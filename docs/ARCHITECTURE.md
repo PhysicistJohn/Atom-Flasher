@@ -1,6 +1,6 @@
 # Architecture
 
-TinySA Flasher is a deliberately small Electron application around one dangerous capability: writing one exactly admitted OEM or manifested local-custom image to a tinySA Ultra / Ultra+ ZS407. The renderer can request workflow operations, but it cannot access serial ports, files, processes, or Electron directly.
+Flasher is a deliberately small Electron application around one dangerous capability: writing one exactly admitted OEM or manifested local-custom image to a tinySA Ultra / Ultra+ ZS407. The renderer can request workflow operations, but it cannot access serial ports, files, processes, or Electron directly.
 
 ## Process and dependency boundaries
 
@@ -49,7 +49,7 @@ All external data is untrusted until checked at its receiving boundary:
 - Persisted JSON and lock files are untrusted input on every process start. Versioned readers reject malformed, unknown, conflicting, stale, or indeterminate evidence.
 - The native main-process confirmation is the final local-intent boundary. It includes the exact preparation and target kind/ID/version/image SHA-256 plus the custom-manifest SHA-256 when applicable; renderer text cannot manufacture it.
 
-Atomizer owns normal operational USB sessions. TinySA Flasher owns CDC and DFU access only during its dedicated update session. Do not run both applications against the analyzer at the same time.
+Atomizer owns normal operational USB sessions. Flasher owns CDC and DFU access only during its dedicated update session. Do not run both applications against the analyzer at the same time.
 
 ## Transaction and evidence model
 
@@ -62,7 +62,7 @@ Unprepared custom selection is intentionally process-local and is not journaled.
 Production evidence on macOS is stored under:
 
 ```text
-~/Library/Application Support/TinySA Flasher/firmware/
+~/Library/Application Support/Flasher/firmware/
 ```
 
 `npm run dev` instead verifies and tightens an owner-only, non-symlink repository-local `.dev/user-data/`, sets it as Electron user data, and disables legacy discovery only in the unpackaged development process. It must never copy, delete, or advance production evidence. The development host also gives Electron one payload-free inherited pipe. EOF irreversibly removes IPC handlers and renderer trust and destroys the window; the `activate` lifecycle cannot recreate it. This kernel lifetime binding still fires when the host is killed without cleanup, while an operation already running in the main-process application remains alive to finish its durable safety state. The packaged runtime smoke uses a new temporary home and user-data directory, loads the production renderer and frozen preload API in a hidden sandboxed window without constructing the application/device/migration host, verifies that no firmware directory was created, and then deletes the temporary directory.

@@ -100,7 +100,7 @@ export function parseDfuUtilVersion(output: string): string {
   const versionLine = output.split(/\r?\n/).map((line) => line.trim()).find((line) => /^dfu-util\b/i.test(line));
   const version = versionLine?.match(/^dfu-util\s+(\S+)$/i)?.[1];
   if (version !== '0.11') {
-    throw new Error(`dfu-util version ${version ?? 'missing'} is unsupported; TinySA Flasher requires 0.11`);
+    throw new Error(`dfu-util version ${version ?? 'missing'} is unsupported; Flasher requires 0.11`);
   }
   return version;
 }

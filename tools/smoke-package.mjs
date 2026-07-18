@@ -146,7 +146,7 @@ async function smokeApplication(inspection, temporaryDirectory, containers) {
   }
   const marker = JSON.parse(markerLine.slice('TINYSA_FLASHER_RUNTIME_SMOKE_OK '.length));
   if (marker.packaged !== true
-    || marker.name !== 'TinySA Flasher'
+    || marker.name !== 'Flasher'
     || marker.version !== projectPackage.version
     || marker.electron !== projectPackage.devDependencies.electron
     || marker.rendererLoaded !== true

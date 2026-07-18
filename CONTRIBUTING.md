@@ -1,6 +1,6 @@
-# Contributing to TinySA Flasher
+# Contributing to Flasher
 
-TinySA Flasher controls a firmware-write boundary. Changes should remain small, reviewable, and fail closed when device identity, artifact provenance, durable state, or operator intent is uncertain.
+Flasher controls a firmware-write boundary. Changes should remain small, reviewable, and fail closed when device identity, artifact provenance, durable state, or operator intent is uncertain.
 
 ## Development setup
 

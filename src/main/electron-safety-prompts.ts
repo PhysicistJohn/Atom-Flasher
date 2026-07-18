@@ -14,7 +14,7 @@ export class ElectronSafetyPrompts implements NativeSafetyPromptPort {
       message: custom
         ? 'This target is a locally imported custom build, not an OEM release.'
         : 'This is the only action that writes the tinySA internal flash.',
-      detail: `TinySA Flasher will write only ${input.targetVersion} (${input.targetId}, image SHA-256 ${input.targetSha256}${manifestBinding}) for preparation ${input.preparationId}. Keep USB and power connected until post-reboot identity verification completes.`,
+      detail: `Flasher will write only ${input.targetVersion} (${input.targetId}, image SHA-256 ${input.targetSha256}${manifestBinding}) for preparation ${input.preparationId}. Keep USB and power connected until post-reboot identity verification completes.`,
       buttons: ['Cancel', custom ? 'Flash local custom firmware' : 'Flash verified OEM firmware'],
       defaultId: 0,
       cancelId: 0,
@@ -29,7 +29,7 @@ export class ElectronSafetyPrompts implements NativeSafetyPromptPort {
       type: 'warning',
       title: 'Confirm physical power-off',
       message: 'Power the analyzer off before clearing this serial safety fault.',
-      detail: 'TinySA Flasher could not confirm RF output off. Continue only after the physical power switch is off. A later connection repeats exact USB and RF-off admission from the beginning.',
+      detail: 'Flasher could not confirm RF output off. Continue only after the physical power switch is off. A later connection repeats exact USB and RF-off admission from the beginning.',
       buttons: ['Cancel', 'The analyzer is physically off'],
       defaultId: 0,
       cancelId: 0,

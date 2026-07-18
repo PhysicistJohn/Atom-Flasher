@@ -2,7 +2,7 @@
 
 Copy this into the GitHub Release description for each tag. Fill in every bracketed value; delete nothing that doesn't apply — state it as not performed instead.
 
-## TinySA Flasher [version]
+## Flasher [version]
 
 - Commit: `[40-character commit SHA]`
 - Architecture: `[arm64 | x64]`
@@ -32,4 +32,4 @@ Copy this into the GitHub Release description for each tag. Fill in every bracke
 shasum -a 256 -c SHA256SUMS --ignore-missing
 ```
 
-Attach: `TinySA Flasher-[version]-[arch].dmg`, the matching `.zip`, `SHA256SUMS`, `PACKAGE-INSPECTION.json`, `BUILD-PROVENANCE.json`.
+Attach: `Flasher-[version]-[arch].dmg`, the matching `.zip`, `SHA256SUMS`, `PACKAGE-INSPECTION.json`, `BUILD-PROVENANCE.json`.

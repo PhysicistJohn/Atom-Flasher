@@ -155,7 +155,7 @@ async function rebuildAndRestart() {
     await buildMain();
     if (electronProcess && electronProcess.exitCode === null && electronProcess.signalCode === null) {
       restartPending = true;
-      process.stdout.write('Updated main/preload build is ready. Quit TinySA Flasher normally when safe; the development host will then restart it.\n');
+      process.stdout.write('Updated main/preload build is ready. Quit Flasher normally when safe; the development host will then restart it.\n');
     } else {
       await startElectron();
     }
@@ -185,7 +185,7 @@ async function shutdown(exitCode) {
     // loopback port. SIGKILL needs no cleanup: the kernel closes this endpoint.
     electronLifetimeChannel?.destroy();
     electronLifetimeChannel = undefined;
-    process.stdout.write('\nDevelopment host stopped without terminating TinySA Flasher. Its inherited lifetime channel will revoke and close the renderer while any in-flight main-process update finishes safely. Quit the quarantined app normally when its safety state permits.\n');
+    process.stdout.write('\nDevelopment host stopped without terminating Flasher. Its inherited lifetime channel will revoke and close the renderer while any in-flight main-process update finishes safely. Quit the quarantined app normally when its safety state permits.\n');
     electronProcess.unref();
   }
   await Promise.allSettled([

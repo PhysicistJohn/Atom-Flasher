@@ -14,7 +14,7 @@ export function App() {
     ? `${snapshot.device.connectedAt ?? snapshot.device.connection}:${JSON.stringify(snapshot.update.target)}`
     : undefined;
   useEffect(() => { setPreflight({}); }, [preflightBinding]);
-  if (!snapshot) return <main className="app-shell"><section className="panel"><h1>TinySA Flasher</h1><p>{error ?? 'Initializing the fail-closed firmware evidence boundary…'}</p></section></main>;
+  if (!snapshot) return <main className="app-shell"><section className="panel"><h1>Flasher</h1><p>{error ?? 'Initializing the fail-closed firmware evidence boundary…'}</p></section></main>;
   const devices = snapshot.discovery.candidates;
   const device = snapshot.device;
   const update = snapshot.update;
@@ -33,7 +33,7 @@ export function App() {
   return <main className="app-shell">
     <header className="app-header">
       <div className="brand-mark" aria-hidden="true"><i/><i/><i/></div>
-      <div><span className="eyebrow">PHYSICISTJOHN · DEVICE UTILITY</span><h1>TinySA Flasher</h1></div>
+      <div><span className="eyebrow">AtomOS</span><h1>Flasher</h1></div>
       <span className={`status-chip ${device.connection === 'ready' ? 'ready' : ''}`}><i/>{device.connection === 'ready' ? 'ZS407 verified' : deviceFaulted ? 'Serial safety fault' : hasPreparedSession ? 'Update session active' : 'No verified device'}</span>
     </header>
 
@@ -100,7 +100,7 @@ export function App() {
       </div>
 
       {(update.phase === 'available' || update.phase === 'downloading') && <Stage title={update.phase === 'downloading' ? 'Downloading and verifying' : 'Pinned update available'} icon="↓">
-        <p>The OEM host uses HTTP. TinySA Flasher retains the image only after both its exact {update.target.sizeBytes.toLocaleString()}-byte length and pinned SHA-256 match.</p>
+        <p>The OEM host uses HTTP. Flasher retains the image only after both its exact {update.target.sizeBytes.toLocaleString()}-byte length and pinned SHA-256 match.</p>
         <Facts update={update}/>
         <button className="primary" disabled={Boolean(busy) || !snapshot.allowedActions.download} onClick={() => void run('download', () => window.tinySaFlasher.download())}>{busy === 'download' ? 'Downloading…' : 'Download & verify exact image'}</button>
       </Stage>}
@@ -157,7 +157,7 @@ export function App() {
       </Stage>}
 
       {update.phase === 'ready-to-flash' && <Stage title="One exact DFU target is ready" icon="!">
-        <p>The target identity is journaled. It will be enumerated again immediately before the write. TinySA Flasher binds dfu-util to that exact USB path and serial, and supplies firmware only through the same open descriptor that was verified.</p>
+        <p>The target identity is journaled. It will be enumerated again immediately before the write. Flasher binds dfu-util to that exact USB path and serial, and supplies firmware only through the same open descriptor that was verified.</p>
         <div className="identity-proof"><span>DFU PATH <code>{update.dfuDevice.identity?.path}</code></span><span>SERIAL <code>{update.dfuDevice.identity?.serial}</code></span><span>ALT <code>0 · Internal Flash</code></span></div>
         <div className="danger-note"><strong>Final physical boundary</strong><span>A native confirmation appears next. Do not disconnect USB or power until post-reboot verification finishes.</span></div>
         <button className="danger" disabled={Boolean(busy) || !snapshot.allowedActions.flash} onClick={() => {
@@ -168,7 +168,7 @@ export function App() {
       </Stage>}
 
       {(update.phase === 'flashing' || update.phase === 'reconnecting') && <Stage title={update.phase === 'flashing' ? 'Writing firmware — do not disconnect' : 'Write complete — verifying reboot'} icon="◌">
-        <p>Closing TinySA Flasher is blocked. A slow dfu-util process is observed until it exits; the app does not terminate a write at its expected-duration boundary.</p>
+        <p>Closing Flasher is blocked. A slow dfu-util process is observed until it exits; the app does not terminate a write at its expected-duration boundary.</p>
         <Progress update={update}/>
       </Stage>}
 

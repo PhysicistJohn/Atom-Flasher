@@ -13,8 +13,8 @@ const digestB = 'b'.repeat(64);
 const inspectionFixture = Object.freeze({
   schemaVersion: 1,
   artifacts: [
-    { kind: 'zip', name: 'TinySA Flasher-0.1.0-arm64-mac.zip', bytes: 200, sha256: digestB },
-    { kind: 'dmg', name: 'TinySA Flasher-0.1.0-arm64.dmg', bytes: 100, sha256: digestA },
+    { kind: 'zip', name: 'Flasher-0.1.0-arm64-mac.zip', bytes: 200, sha256: digestB },
+    { kind: 'dmg', name: 'Flasher-0.1.0-arm64.dmg', bytes: 100, sha256: digestA },
   ],
   application: {
     architecture: 'arm64',
@@ -69,8 +69,8 @@ test('provenance is deterministic, externally scoped, and explicitly makes no De
   assert.equal(parsed.packagingPolicy.provenancePlacement, 'external-not-embedded');
   assert.equal(parsed.packagingPolicy.physicalHardwareQualification, 'not-performed-by-package-gate');
   assert.deepEqual(parsed.artifacts.map(({ name }) => name), [
-    'TinySA Flasher-0.1.0-arm64.dmg',
-    'TinySA Flasher-0.1.0-arm64-mac.zip',
+    'Flasher-0.1.0-arm64.dmg',
+    'Flasher-0.1.0-arm64-mac.zip',
   ]);
   assert.doesNotMatch(first, /timestamp|hostname|\/Users\//i);
 });
@@ -84,20 +84,20 @@ test('inspection validation rejects any substituted publisher identity', () => {
 
 test('checksum coverage is exactly one DMG, one ZIP, and both external records', () => {
   assert.deepEqual(releaseArtifactNames([
-    'TinySA Flasher-0.1.0-arm64.dmg',
-    'TinySA Flasher-0.1.0-arm64-mac.zip',
-    'TinySA Flasher-0.1.0-arm64.dmg.blockmap',
+    'Flasher-0.1.0-arm64.dmg',
+    'Flasher-0.1.0-arm64-mac.zip',
+    'Flasher-0.1.0-arm64.dmg.blockmap',
     'PACKAGE-INSPECTION.json',
     'BUILD-PROVENANCE.json',
   ]), [
     'BUILD-PROVENANCE.json',
     'PACKAGE-INSPECTION.json',
-    'TinySA Flasher-0.1.0-arm64-mac.zip',
-    'TinySA Flasher-0.1.0-arm64.dmg',
+    'Flasher-0.1.0-arm64-mac.zip',
+    'Flasher-0.1.0-arm64.dmg',
   ]);
   assert.throws(() => releaseArtifactNames([
-    'TinySA Flasher-0.1.0-arm64.dmg',
-    'TinySA Flasher-0.1.0-arm64-mac.zip',
+    'Flasher-0.1.0-arm64.dmg',
+    'Flasher-0.1.0-arm64-mac.zip',
     'PACKAGE-INSPECTION.json',
   ]), /BUILD-PROVENANCE/);
 });

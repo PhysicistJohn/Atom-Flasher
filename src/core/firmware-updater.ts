@@ -356,7 +356,7 @@ export class FirmwareUpdater {
         phase: 'awaiting-dfu',
         preparation,
         dfuDevice: { detected: false, count: 0 },
-        continuityWarning: 'USB CDC and STM32 DFU do not expose a publicly proven common identifier. TinySA Flasher records both identities, requires one exact DFU target, requires the only-USB-device attestation, and verifies the CDC device ID and serial after reboot; it does not claim cross-mode identity equivalence.',
+        continuityWarning: 'USB CDC and STM32 DFU do not expose a publicly proven common identifier. Flasher records both identities, requires one exact DFU target, requires the only-USB-device attestation, and verifies the CDC device ID and serial after reboot; it does not claim cross-mode identity equivalence.',
         error: undefined,
       };
       await this.#transactionStore.recordPreflightAndPersist(preflightRecord, this.#state);
@@ -729,7 +729,7 @@ export class FirmwareUpdater {
           ...this.#state,
           phase: 'failed',
           artifact: undefined,
-          error: 'The previous TinySA Flasher process ended during firmware download. No artifact was admitted and no write began; retry the exact download.',
+          error: 'The previous Flasher process ended during firmware download. No artifact was admitted and no write began; retry the exact download.',
         };
       } else if (this.#state.phase === 'ready-to-flash') {
         this.#state = { ...this.#state, phase: 'awaiting-dfu', dfuDevice: { detected: false, count: 0 }, error: undefined };
@@ -738,8 +738,8 @@ export class FirmwareUpdater {
           ...this.#state,
           phase: 'failed',
           error: this.#state.writeDisposition === 'completed'
-            ? 'The previous TinySA Flasher process ended after bytes were written. Do not flash again; verify the rebooted USB identity.'
-            : 'The previous TinySA Flasher process ended after the firmware write attempt began. Completion is unknown; do not flash again.',
+            ? 'The previous Flasher process ended after bytes were written. Do not flash again; verify the rebooted USB identity.'
+            : 'The previous Flasher process ended after the firmware write attempt began. Completion is unknown; do not flash again.',
         };
       } else {
         return;
@@ -759,7 +759,7 @@ export class FirmwareUpdater {
   #requireWriteNotStarted(): void {
     if (this.#state.writeDisposition === 'not-started') return;
     if (this.#state.writeDisposition === 'indeterminate') throw new Error('Firmware journal integrity is indeterminate; flashing remains locked pending manual inspection');
-    throw new Error('A firmware write attempt already began; TinySA Flasher will not issue another write');
+    throw new Error('A firmware write attempt already began; Flasher will not issue another write');
   }
 
   #synchronizeDevice(): void {
