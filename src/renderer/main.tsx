@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
 import './styles.css';
 
+document.documentElement.dataset.platform = navigator.platform.startsWith('Mac') ? 'darwin' : 'other';
+
 void startRenderer();
 
 async function startRenderer(): Promise<void> {

@@ -4,6 +4,7 @@ import {
   type FirmwareUpdatePreflight,
   type FirmwareUpdateState,
 } from '../core/contracts.js';
+import { AtomicMark } from './AtomicMark.js';
 import { useFlasherApplication } from './use-flasher-application.js';
 
 export function App() {
@@ -14,7 +15,10 @@ export function App() {
     ? `${snapshot.device.connectedAt ?? snapshot.device.connection}:${JSON.stringify(snapshot.update.target)}`
     : undefined;
   useEffect(() => { setPreflight({}); }, [preflightBinding]);
-  if (!snapshot) return <main className="app-shell"><section className="panel"><h1>Flasher</h1><p>{error ?? 'Initializing the fail-closed firmware evidence boundary…'}</p></section></main>;
+  if (!snapshot) return <main className="app-shell">
+    <AppHeader status="Starting safely"/>
+    <div className="app-content"><section className="panel loading-panel"><h2>Preparing Flasher</h2><p>{error ?? 'Initializing the fail-closed firmware evidence boundary…'}</p></section></div>
+  </main>;
   const devices = snapshot.discovery.candidates;
   const device = snapshot.device;
   const update = snapshot.update;
@@ -29,13 +33,17 @@ export function App() {
   const hasPreparedSession = Boolean(update.preparation);
   const connecting = busy === 'connect';
   const deviceFaulted = device.connection === 'faulted';
+  const headerStatus = device.connection === 'ready'
+    ? 'ZS407 verified'
+    : deviceFaulted
+      ? 'Serial safety fault'
+      : hasPreparedSession
+        ? 'Update session active'
+        : 'No verified device';
 
   return <main className="app-shell">
-    <header className="app-header">
-      <div className="brand-mark" aria-hidden="true"><i/><i/><i/></div>
-      <div><span className="eyebrow">AtomOS</span><h1>Flasher</h1></div>
-      <span className={`status-chip ${device.connection === 'ready' ? 'ready' : ''}`}><i/>{device.connection === 'ready' ? 'ZS407 verified' : deviceFaulted ? 'Serial safety fault' : hasPreparedSession ? 'Update session active' : 'No verified device'}</span>
-    </header>
+    <AppHeader status={headerStatus} ready={device.connection === 'ready'}/>
+    <div className="app-content">
 
     <section className="safety-strip"><strong>FAIL-CLOSED</strong><span>Exact image · exact USB identity · one DFU target · durable write journal</span></section>
 
@@ -192,7 +200,18 @@ export function App() {
     </section>}
 
     <footer><span>STANDALONE · NO TINYSA REPOSITORY DEPENDENCY</span><span>NO AUTOMATIC FLASH</span></footer>
+    </div>
   </main>;
+}
+
+function AppHeader({ status, ready = false }: { status: string; ready?: boolean }) {
+  return <header className="app-header">
+    <div className="brand-lockup">
+      <div className="brand-symbol"><AtomicMark size={29}/></div>
+      <div><small>AtomOS</small><strong>Flasher</strong></div>
+    </div>
+    <span className={`status-chip ${ready ? 'ready' : ''}`}><i/>{status}</span>
+  </header>;
 }
 
 function PanelHeading({ step, title, detail }: { step: string; title: string; detail: string }) { return <div className="panel-heading"><span>{step}</span><div><h2>{title}</h2><p>{detail}</p></div></div>; }

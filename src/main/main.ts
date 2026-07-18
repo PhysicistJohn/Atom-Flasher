@@ -185,6 +185,10 @@ class DesktopHost {
       minHeight: 640,
       title: 'Flasher',
       backgroundColor: '#080b10',
+      ...(process.platform === 'darwin' ? {
+        titleBarStyle: 'hiddenInset' as const,
+        trafficLightPosition: { x: 18, y: 20 },
+      } : {}),
       show: false,
       webPreferences: secureRendererWebPreferences(),
     });
