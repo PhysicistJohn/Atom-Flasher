@@ -69,4 +69,14 @@ export default tseslint.config(
     files: ['**/*.mjs', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
+  {
+    files: ['tools/dev-launcher/**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: globals.node,
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
 );

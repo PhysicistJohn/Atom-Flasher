@@ -9,7 +9,7 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 export async function initialFirmwareManifestDirectory(
   currentWorkingDirectory: string,
 ): Promise<string | undefined> {
-  const candidate = resolve(currentWorkingDirectory, '..', 'TinySA_Firmware');
+  const candidate = resolve(currentWorkingDirectory, '..', 'Atom-Firmware');
   try {
     const metadata = await lstat(candidate);
     if (metadata.isSymbolicLink() || !metadata.isDirectory()) {

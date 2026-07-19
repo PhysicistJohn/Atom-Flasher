@@ -60,7 +60,7 @@ describe('standalone flasher renderer', () => {
     expect(await screen.findByText('Manifested local custom build')).toBeTruthy();
     expect(screen.getByText(/No filesystem path is accepted from or returned to the renderer/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Use pinned OEM target' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Select TinySA_Firmware build…' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Select Atom-Firmware build…' })).toBeTruthy();
     expect(screen.getByText('LOCAL CUSTOM FIRMWARE')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Download & verify/i })).toBeNull();
   });
@@ -86,7 +86,7 @@ describe('standalone flasher renderer', () => {
     expect((screen.getByRole('button', { name: 'Record preflight & disconnect' }) as HTMLButtonElement).disabled).toBe(false);
 
     controls.setUpdate(customVerifiedUpdate('e'.repeat(64)));
-    fireEvent.click(screen.getByRole('button', { name: 'Select TinySA_Firmware build…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select Atom-Firmware build…' }));
 
     await waitFor(() => expect((screen.getByLabelText('CAL↔RF self-test passed') as HTMLInputElement).checked).toBe(false));
     expect((screen.getByRole('button', { name: 'Record preflight & disconnect' }) as HTMLButtonElement).disabled).toBe(true);
@@ -114,7 +114,7 @@ describe('standalone flasher renderer', () => {
     installApi([exact], connectedSnapshot(), customFailedUnpreparedUpdate(true));
     render(<App/>);
 
-    expect(await screen.findByRole('button', { name: 'Select TinySA_Firmware build…' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Select Atom-Firmware build…' })).toBeTruthy();
     expect(screen.getByText(/No filesystem path is accepted from or returned to the renderer/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Record preflight|Download & verify|Retry download/i })).toBeNull();
   });

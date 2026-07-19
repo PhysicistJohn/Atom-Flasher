@@ -11,7 +11,7 @@ export default defineConfig(({ command }) => ({
   base: './',
   server: {
     host: '127.0.0.1',
-    port: 5173,
+    port: 5175,
     strictPort: true,
   },
   build: {
@@ -25,7 +25,7 @@ function rendererContentSecurityPolicy(production: boolean): Plugin {
   const placeholder = '__TINysa_CONNECT_SOURCE__';
   const connectSource = production
     ? "'none'"
-    : "'self' ws://127.0.0.1:5173";
+    : "'self' ws://127.0.0.1:5175";
   return {
     name: 'tinysa-renderer-content-security-policy',
     enforce: 'pre',

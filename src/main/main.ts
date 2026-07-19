@@ -116,7 +116,7 @@ class DesktopHost {
         chooseManifest: async (parent) => {
           const defaultPath = manifestDirectory.defaultPath();
           const options: OpenDialogOptions = {
-            title: 'Select a TinySA_Firmware build manifest',
+            title: 'Select a Atom-Firmware build manifest',
             buttonLabel: 'Verify build manifest',
             ...(defaultPath ? { defaultPath } : {}),
             properties: ['openFile', 'dontAddToRecent'],

@@ -14,7 +14,7 @@ if (!npmCli) throw new Error('npm run dev must be launched through npm so the pi
 
 const require = createRequire(import.meta.url);
 const electronBinary = require('electron');
-const rendererUrl = 'http://127.0.0.1:5173/';
+const rendererUrl = 'http://127.0.0.1:5175/';
 const developmentHostLifetimeDescriptor = 3;
 const developerData = await preparePrivateDevelopmentDirectory(root);
 const watchedInputs = [
