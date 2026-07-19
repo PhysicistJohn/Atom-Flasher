@@ -12,7 +12,7 @@ The application has one pinned OEM release. It is the only network-acquired targ
 | SHA-256 | `3c9847ff4d7b80561df2f2f1030a112703a083409ffb2ee11361b2413b7c1e41` |
 | Download | `http://dfu.tinydevices.org/tinySA4/DFU/tinySA4_v1.4-224-gc979386.bin` |
 
-[`contracts/releases/oem-zs407-c979386-v1.json`](./contracts/releases/oem-zs407-c979386-v1.json) is the canonical immutable release manifest. The application contract references its exact file SHA-256, the runtime imports it, and `npm run check:contracts` rejects schema, digest, or projection drift.
+[`contracts/releases/oem-zs407-c979386-v1.json`](./contracts/releases/oem-zs407-c979386-v1.json) is the canonical immutable release manifest. The runtime imports it directly and validates every field against pinned literals in `src/core/contracts.ts`.
 
 The OEM host is HTTP. Transport is not treated as authenticity: the streamed response is bounded to the pinned byte length and the image is retained only after its exact SHA-256 matches.
 
@@ -87,14 +87,6 @@ npm run dev
 
 The development command uses the strict renderer origin `http://127.0.0.1:5173`: renderer changes use HMR, while application, main, preload, core, device, DFU, and the active release-manifest JSON changes rebuild and stage a restart. Electron also receives a payload-free inherited lifetime channel owned by the development host. Kernel EOF permanently removes IPC trust and destroys the renderer if that host ends—even by SIGKILL—so a later process cannot inherit hardware capability by reclaiming port 5173. An operation already admitted to the main process, including a firmware write or post-write verification, continues to its durable terminal state; the host never signals or force-kills it. Quit the quarantined app normally when safe, then relaunch through `npm run dev`. Development evidence is isolated under ignored `.dev/user-data/`; unpackaged isolated development does not migrate production Atomizer evidence.
 
-For routine UI and workflow work, run the browser-only safe mock:
-
-```sh
-npm run dev:safe
-```
-
-It displays a prominent safe-mock banner and has no Electron, serial, filesystem, external/firmware-download network, or DFU capability. The browser still uses loopback Vite/HMR traffic for development. The synthetic workflow reaches the final screen, but its flash operation always returns cancelled.
-
 Checks and production build:
 
 ```sh
@@ -102,7 +94,7 @@ npm run check
 npm audit --audit-level=low
 ```
 
-The repository CI runs these commands from the lockfile on pinned Node.js and npm versions. `check` includes lint, machine-readable contract validation, typechecking, coverage thresholds, tests, and a clean production build. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for contract rules, the review checklist, and physical-hardware qualification.
+The repository CI runs these commands from the lockfile on pinned Node.js and npm versions. `check` includes lint, typechecking, tests, and a clean production build. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the review checklist and physical-hardware qualification.
 
 Create ad-hoc-signed local macOS DMG and ZIP test artifacts:
 
@@ -110,11 +102,9 @@ Create ad-hoc-signed local macOS DMG and ZIP test artifacts:
 npm run package:mac
 ```
 
-Packaging is gated by the full check and repeated Git-tree checks. Every tracked or untracked change blocks packaging; ignored state is allowed only under `node_modules/`, `coverage/`, `dist/`, and `release/`, all of which are installed or recreated by the package pipeline. An ignored `.env`, `.dev` state, firmware image, journal, log, or any other ignored path also blocks the release gate. The production renderer CSP has no network connection source; development-only HMR WebSocket access is injected only by the Vite development transform. A fail-closed post-pack hook removes Electron's unused media/Bluetooth permission descriptions and replaces Electron Builder's permissive localhost transport defaults with an exact no-arbitrary-load/no-local-network policy before signing. Electron Builder then applies an inside-out ad-hoc hardened-runtime signature. The gate verifies the final nested signatures, hardened-runtime flag, renderer CSP, fuses, permission/transport metadata, and packaged manifest, and boots the packaged executable with temporary user data through a path that constructs no device/update service and creates no firmware evidence.
+Packaging runs the full check first. The production renderer CSP has no network connection source; development-only HMR WebSocket access is injected only by the Vite development transform. A fail-closed post-pack hook (`tools/after-pack.mjs`) removes Electron's unused media/Bluetooth permission descriptions, replaces Electron Builder's permissive localhost transport defaults with an exact no-arbitrary-load/no-local-network policy, and pins the Electron fuse state before signing. Electron Builder then applies an inside-out ad-hoc hardened-runtime signature.
 
-The smoke writes deterministic external `release/PACKAGE-INSPECTION.json`; the provenance gate writes deterministic external `release/BUILD-PROVENANCE.json`. Together they record the clean commit, host and running artifact architecture, exact Node/npm/Electron versions, DMG/ZIP hashes and sizes, observed ad-hoc CodeDirectory identity/flags, fuse state, and the local/CI packaging policy. They contain no timestamp, hostname, local path, or macOS-version value and are never embedded in the app, DMG, or ZIP. `release/SHA256SUMS` exactly covers the DMG, ZIP, and both records. The policy explicitly says that Developer ID was not used or claimed, notarization/stapling/Gatekeeper assessment were not requested or claimed, and physical hardware qualification was not performed by the package gate. No Developer ID or notarization credential is embedded in the repository.
-
-The local packaging command emits artifacts for the current Mac architecture. Release candidates must record the architecture and artifact SHA-256; an ad-hoc signature establishes code integrity for local testing but is not a trusted Developer ID signature or a notarized public release.
+The local packaging command emits artifacts for the current Mac architecture. An ad-hoc signature establishes code integrity for local testing but is not a trusted Developer ID signature or a notarized public release. No Developer ID or notarization credential is embedded in the repository.
 
 ### External tool override
 
@@ -143,18 +133,8 @@ The inspector refuses symbolic links in the requested path or evidence tree, has
 
 The application intentionally provides no “clear lock and retry” button.
 
-## Composition contract
+## Code map
 
-[`contracts/contract-catalog-v3.json`](./contracts/contract-catalog-v3.json) is the active machine-readable index of decomposed interface contracts. Each catalog entry resolves to an append-only v3 contract under `contracts/interfaces/` validated by [`contracts/schemas/interface-contract-v3.schema.json`](./contracts/schemas/interface-contract-v3.schema.json). Every invocation carries its AST-derived canonical `readonly [...]` argument signature and declared return signature, one source member, an explicit validation boundary, failure semantics, and existing test-file mappings. Inherited-only interfaces use separate AST-checked `compositions` entries, so a semantic type reference can never masquerade as an exact call shape.
+The implementation is split into independently reviewable layers: shared runtime and persisted schemas in `src/core/contracts.ts`, renderer/main operations in `src/main/ipc-contract.ts`, the sandbox capability in `src/main/preload.ts`, the device protocol and transport under `src/device`, DFU tooling in `src/dfu/dfu-util.ts`, and update orchestration in `src/core/firmware-updater.ts`. The safety chain — write-started journaling, RF-off-before-flash, exact USB admission, and pinned sha verification — is pinned by the tests under `tests/`.
 
-[`contracts/flasher-application-v2.json`](./contracts/flasher-application-v2.json) remains the active composition-level ownership, target-selection, and safety-invariant contract because this interface-publication correction does not change application or device behavior. In cross-repository terms, TinySA_Flasher's active interface catalog v3 retains the active application contract v2 (`deviceContractVersion: 2`); interface catalog v2 and legacy application contract v1 are frozen. The tracked [`contracts/flasher-application-v1.json`](./contracts/flasher-application-v1.json), v2 catalog, v2 interface documents, and v2 schemas therefore remain immutable historical publications. Run `npm run check:contracts` to validate both publication generations, exact source signatures, all 61 exported interfaces, every direct and inherited interface relationship, test-path mappings, hashes, and release projections.
-
-Catalog, application, interface semantic, and interface-envelope schema versions remain independent. Catalog v3 intentionally advances all active interface contracts to semantic version 3 because it corrects previously ambiguous invocation semantics, while continuing to reference the unchanged application v2 contract. The verifier pins the finalized v2 and v3 catalogs, interface publications, schemas, application, and release assets by SHA-256 outside those documents; future work must add a new versioned publication instead of rewriting either generation.
-
-The public contract carries three deliberately separate versions. `contractVersion` versions its JSON shape and interpretation; `applicationContractVersion` versions externally observable updater ownership, workflow, and safety guarantees; `deviceContractVersion` versions physical CDC/preflight/DFU/post-write assumptions and guarantees. Firmware releases use immutable release manifests and version independently, so selecting a new release alone does not change any of those three contract versions.
-
-The implementation is split into independently reviewable contracts: shared runtime and persisted schemas in `src/core/contracts.ts`, renderer/main operations in `src/main/ipc-contract.ts`, the sandbox capability in `src/main/preload.ts`, the device protocol and transport under `src/device`, and update orchestration in `src/core/firmware-updater.ts`. Every interface change must identify one owner, direction, inputs, outputs, validation boundary, failure semantics, compatibility policy, and tests. The catalog, interface documents, release manifest, composition JSON, and code-owned behavior must not drift.
-
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full contract architecture and mandatory manual verification rules. Security issues should follow [`SECURITY.md`](./SECURITY.md).
-
-The process/trust-boundary and durable-evidence design is documented in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md). The packaging, checksum, architecture, signing/notarization, and qualification gate is documented in [`docs/RELEASING.md`](./docs/RELEASING.md).
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the review checklist and mandatory manual verification rules. Security issues should follow [`SECURITY.md`](./SECURITY.md).

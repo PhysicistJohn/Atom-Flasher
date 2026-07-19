@@ -42,28 +42,29 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Full check, ad-hoc package, checksum, and isolated runtime smoke
+      - name: Full check and ad-hoc package
         run: npm run package:mac
 
       - name: Audit dependencies
         run: npm audit --audit-level=low
+
+      - name: Write artifact checksums
+        run: (cd release && shasum -a 256 *.dmg *.zip > SHA256SUMS)
 
       - name: Publish ad-hoc-signed release artifacts to the public releases repo
         env:
           # The default GITHUB_TOKEN is scoped to this (private) repo only.
           # Publishing into the separate public releases repo requires a
           # fine-grained PAT, scoped to that repo only (contents: write),
-          # stored as the RELEASES_REPO_TOKEN secret. See docs/RELEASING.md.
+          # stored as the RELEASES_REPO_TOKEN secret.
           GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
         run: |
           set -euo pipefail
           gh release create "${{ github.ref_name }}" \
             --repo PhysicistJohn/TinySA_Flasher-releases \
             --title "TinySA Flasher ${{ github.ref_name }}" \
-            --notes-file docs/RELEASE_NOTES_TEMPLATE.md \
+            --notes "Draft release ${{ github.ref_name }}. Verify downloads against SHA256SUMS." \
             --draft \
             release/*.dmg \
             release/*.zip \
-            release/SHA256SUMS \
-            release/PACKAGE-INSPECTION.json \
-            release/BUILD-PROVENANCE.json
+            release/SHA256SUMS

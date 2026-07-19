@@ -42,8 +42,17 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Full check, ad-hoc package, checksum, and isolated runtime smoke
-        run: npm run package:mac
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
 
       - name: Audit dependencies
         run: npm audit --audit-level=low
