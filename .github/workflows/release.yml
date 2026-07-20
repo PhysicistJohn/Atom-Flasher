@@ -61,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release create "${{ github.ref_name }}" \
-            --repo PhysicistJohn/TinySA_Flasher-releases \
+            --repo PhysicistJohn/Atom-Flasher-releases \
             --title "TinySA Flasher ${{ github.ref_name }}" \
             --notes "Draft release ${{ github.ref_name }}. Verify downloads against SHA256SUMS." \
             --draft \

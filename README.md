@@ -69,10 +69,10 @@ A single legacy journal and its safety artifacts, including completed-ledger his
 
 ## Install
 
-Built releases are published separately at [PhysicistJohn/TinySA_Flasher-releases](https://github.com/PhysicistJohn/TinySA_Flasher-releases). Full install instructions, signing status, and checksum verification live in that repo's README; this section is a pointer, not a duplicate, so it can't drift out of sync.
+Built releases are published separately at [PhysicistJohn/Atom-Flasher-releases](https://github.com/PhysicistJohn/Atom-Flasher-releases). Full install instructions, signing status, and checksum verification live in that repo's README; this section is a pointer, not a duplicate, so it can't drift out of sync.
 
 ```sh
-brew install --cask physicistjohn/tinysa-flasher/tinysa-flasher
+brew install --cask physicistjohn/atom-flasher/atom-flasher
 ```
 
 AtomOS Flasher currently ships ad-hoc signed, not notarized; see the releases repo for what that means and how to verify a download.
