@@ -1,8 +1,8 @@
 <p align="center"><img src="docs/brand/logo.jpg" alt="AtomOS Flasher" width="520"></p>
 
-# Flasher
+# AtomOS Flasher
 
-Flasher is a focused, standalone desktop updater for the physical **tinySA Ultra / Ultra+ ZS407**. It has no runtime or build-time dependency on the TinySA/Atomizer repository.
+AtomOS Flasher is a standalone, fail-closed desktop firmware updater for the physical **tinySA Ultra / Ultra+ ZS407**. It is part of the AtomOS suite but has no runtime or build-time dependency on the [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer) application repository.
 
 The application has one pinned OEM release. It is the only network-acquired target and the default restore/update target:
 
@@ -18,13 +18,13 @@ The application has one pinned OEM release. It is the only network-acquired targ
 
 The OEM host is HTTP. Transport is not treated as authenticity: the streamed response is bounded to the pinned byte length and the image is retained only after its exact SHA-256 matches.
 
-The operator may instead select a manifested local custom build from `PhysicistJohn/TinySA_Firmware`. In a sibling development checkout, the native picker starts in `../TinySA_Firmware`; after a manifest passes admission, later selections in that app session start in its verified directory. Cancelled or rejected selections never replace that directory. Selection uses a native main-process file picker; renderer IPC accepts no path. The adjacent raw `.bin` and strict v1 build manifest must agree on the ZS407/STM32F303 target, `0x08000000` load address, 8 KiB–240 KiB size, SHA-256, vector table, embedded version/revision, clean source and ChibiOS commits, reproducible-build assertion, qualification declarations, and operator-only flash policy. The app copies both files into owner-only, content-addressed storage and reopens and re-verifies them before use.
+The operator may instead select a manifested local custom build from [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware). Build manifests still declare that repository's historical identifier, `PhysicistJohn/TinySA_Firmware`, and in a sibling development checkout the native picker starts in `../TinySA_Firmware`; after a manifest passes admission, later selections in that app session start in its verified directory. Cancelled or rejected selections never replace that directory. Selection uses a native main-process file picker; renderer IPC accepts no path. The adjacent raw `.bin` and strict v1 build manifest must agree on the ZS407/STM32F303 target, `0x08000000` load address, 8 KiB–240 KiB size, SHA-256, vector table, embedded version/revision, clean source and ChibiOS commits, reproducible-build assertion, qualification declarations, and operator-only flash policy. The app copies both files into owner-only, content-addressed storage and reopens and re-verifies them before use.
 
 `qualified-on-zs407` is a manifest declaration that requires an immutable qualification-evidence SHA-256; the app does not independently reproduce that external evidence. A local build is never promoted to OEM provenance. The device-side identity remains `custom-unqualified`, while the journal separately retains the manifest’s build-qualification declaration and exact target identity. Matching custom version/revision text on a connected device does not prove installed bytes, so it never creates an “already current” shortcut; only this app’s just-completed durable write evidence can establish that exact result.
 
 ## Safety model
 
-Flasher fails closed at every write boundary:
+AtomOS Flasher fails closed at every write boundary:
 
 - Physical admission requires exact USB CDC identity `0483:5740`, a ZS407 hardware response, a source revision, the required command surface, and `output off` before and after identification.
 - Preflight records battery voltage, device ID, USB path/serial evidence, the exact LCD capture hash, image hash, and the local human’s self-test/RF-disconnection attestations.
@@ -32,7 +32,7 @@ Flasher fails closed at every write boundary:
 - DFU admission requires exactly one `0483:df11` device, one alt-0 `@Internal Flash` target, a nonempty path/devnum/serial, base address `0x08000000`, and capacity for the exact selected image.
 - The exact DFU fingerprint is journaled, enumerated again immediately before write, and supplied to `dfu-util` with path and serial selectors.
 - The selected image is hashed with positioned reads from one already-open regular-file descriptor. Its device/inode, mode, owner, size, and modification time are checked before and after hashing; that same descriptor remains open through child exit and is inherited by `dfu-util` as `/dev/fd/3`. No verified pathname is reopened at the write boundary.
-- A native Electron dialog—not renderer text—creates the internal flash confirmation and names the exact target kind, ID, version, image SHA-256, preparation, and custom-manifest SHA-256 when applicable.
+- A native Electron dialog, not renderer text, creates the internal flash confirmation and names the exact target kind, ID, version, image SHA-256, preparation, and custom-manifest SHA-256 when applicable.
 - Journal mutations use a durable cross-process mutex and exact-byte generation checks. Flash acquires a random-token owner lock, then atomically revalidates the ready preparation and records write start before `dfu-util` starts. A stale, started, or indeterminate session globally blocks another write.
 - The active firmware-state root is current-user-owned and mode `0700`; a safe legacy `0755` root is tightened, while any foreign-owned or group/world-writable root fails closed. Reserved evidence must be a stable, current-user-owned, non-writable regular inode with one filesystem link, and unknown versioned evidence namespaces require manual inspection.
 - Once a DFU write may have started, an expected-duration timer or output-volume bound never terminates `dfu-util`. Output is retained within a fixed memory bound while the process is observed until exit.
@@ -43,13 +43,13 @@ Flasher fails closed at every write boundary:
 
 USB CDC and STM32 DFU do not expose a publicly proven common identifier on this hardware. The app records both identities and combines one-device admission, the local only-update-device attestation, exact DFU re-enumeration, and post-reboot CDC/device-ID checks. It does not claim that the CDC and DFU identifiers are cryptographically equivalent.
 
-USB ownership is session-scoped. Atomizer owns normal CDC analyzer/generator operation; Flasher owns CDC discovery/preflight, DFU admission/write, and CDC post-write verification for the complete update session. Never let both applications access the same physical device: disconnect or close Atomizer before starting an update and finish or safely exit Flasher before reconnecting Atomizer.
+USB ownership is session-scoped. AtomOS Atomizer owns normal CDC analyzer/generator operation; AtomOS Flasher owns CDC discovery/preflight, DFU admission/write, and CDC post-write verification for the complete update session. Never let both applications access the same physical device: disconnect or close Atomizer before starting an update and finish or safely exit Flasher before reconnecting Atomizer.
 
 If the app restarts with a prepared, not-started custom transaction, it first attempts to reopen the exact content-addressed manifest and binary from app-owned storage. If either file is absent or no longer reproduces the persisted target, flashing remains unavailable until the operator re-admits that exact manifest through the native picker. Cancellation changes no updater state; selecting a different target cannot retarget the preparation. Unprepared custom selections are intentionally not journaled and must be selected again after restart.
 
 ### External `dfu-util` trust boundary
 
-Flasher does **not** bundle or cryptographically pin `dfu-util`. It discovers an externally installed executable from an explicit `TINYSA_DFU_UTIL` path or a bounded standard/PATH search and rejects version output other than `0.11`. The executable itself remains part of the host trust boundary. Packaging a vetted copy would require a separate provenance, update, source-offer, and GPL compliance design; the current application deliberately documents this boundary instead of claiming a hermetic flashing engine.
+AtomOS Flasher does **not** bundle or cryptographically pin `dfu-util`. It discovers an externally installed executable from an explicit `TINYSA_DFU_UTIL` path or a bounded standard/PATH search and rejects version output other than `0.11`. The executable itself remains part of the host trust boundary. Packaging a vetted copy would require a separate provenance, update, source-offer, and GPL compliance design; the current application deliberately documents this boundary instead of claiming a hermetic flashing engine.
 
 ## Prior Atomizer journals
 
@@ -58,7 +58,7 @@ Before the updater is constructed, startup checks both legacy locations:
 - `TinySA Atomizer/firmware`
 - `TinySA Atomizer Dev/firmware`
 
-A single legacy journal and its safety artifacts—including completed-ledger history—are copied without deleting the source. Identical copies are accepted. Conflicting journals create `legacy-migration-conflict-v1.json`; the new updater then remains locked for manual inspection instead of selecting a history. A durably installed migration marker records the consumed legacy path/hash manifest exactly once, so later launches ignore only those exact source copies: they cannot overwrite an advanced standalone journal or resurrect an archived one, while new or changed legacy evidence fails closed.
+A single legacy journal and its safety artifacts, including completed-ledger history, are copied without deleting the source. Identical copies are accepted. Conflicting journals create `legacy-migration-conflict-v1.json`; the new updater then remains locked for manual inspection instead of selecting a history. A durably installed migration marker records the consumed legacy path/hash manifest exactly once, so later launches ignore only those exact source copies: they cannot overwrite an advanced standalone journal or resurrect an archived one, while new or changed legacy evidence fails closed.
 
 ## Prerequisites
 
@@ -69,13 +69,13 @@ A single legacy journal and its safety artifacts—including completed-ledger hi
 
 ## Install
 
-This source repository is private; built releases are published separately and publicly at [PhysicistJohn/TinySA_Flasher-releases](https://github.com/PhysicistJohn/TinySA_Flasher-releases). Full install instructions, signing status, and checksum verification live in that repo's README — this section is a pointer, not a duplicate, so it can't drift out of sync.
+Built releases are published separately at [PhysicistJohn/TinySA_Flasher-releases](https://github.com/PhysicistJohn/TinySA_Flasher-releases). Full install instructions, signing status, and checksum verification live in that repo's README; this section is a pointer, not a duplicate, so it can't drift out of sync.
 
 ```sh
 brew install --cask physicistjohn/tinysa-flasher/tinysa-flasher
 ```
 
-Flasher currently ships ad-hoc signed, not notarized; see the releases repo for what that means and how to verify a download.
+AtomOS Flasher currently ships ad-hoc signed, not notarized; see the releases repo for what that means and how to verify a download.
 
 ## Development
 
@@ -87,7 +87,7 @@ npm ci
 npm run dev
 ```
 
-The development command uses the strict renderer origin `http://127.0.0.1:5173`: renderer changes use HMR, while application, main, preload, core, device, DFU, and the active release-manifest JSON changes rebuild and stage a restart. Electron also receives a payload-free inherited lifetime channel owned by the development host. Kernel EOF permanently removes IPC trust and destroys the renderer if that host ends—even by SIGKILL—so a later process cannot inherit hardware capability by reclaiming port 5173. An operation already admitted to the main process, including a firmware write or post-write verification, continues to its durable terminal state; the host never signals or force-kills it. Quit the quarantined app normally when safe, then relaunch through `npm run dev`. Development evidence is isolated under ignored `.dev/user-data/`; unpackaged isolated development does not migrate production Atomizer evidence.
+The development command uses the strict renderer origin `http://127.0.0.1:5173`: renderer changes use HMR, while application, main, preload, core, device, DFU, and the active release-manifest JSON changes rebuild and stage a restart. Electron also receives a payload-free inherited lifetime channel owned by the development host. Kernel EOF permanently removes IPC trust and destroys the renderer if that host ends (even by SIGKILL), so a later process cannot inherit hardware capability by reclaiming port 5173. An operation already admitted to the main process, including a firmware write or post-write verification, continues to its durable terminal state; the host never signals or force-kills it. Quit the quarantined app normally when safe, then relaunch through `npm run dev`. Development evidence is isolated under ignored `.dev/user-data/`; unpackaged isolated development does not migrate production Atomizer evidence.
 
 Checks and production build:
 
@@ -126,7 +126,7 @@ On macOS, production evidence lives under `~/Library/Application Support/Flasher
 npm run inspect:evidence -- --path "/absolute/path/to/firmware"
 ```
 
-The inspector refuses symbolic links in the requested path or evidence tree, hashes stable regular files, and exits `2` when it sees an obvious hazard—including a malformed or unclassifiable active journal. Its output is diagnostic only—not permission to clear evidence or flash again. If the UI reports a started or indeterminate write:
+The inspector refuses symbolic links in the requested path or evidence tree, hashes stable regular files, and exits `2` when it sees an obvious hazard, including a malformed or unclassifiable active journal. Its output is diagnostic only, not permission to clear evidence or flash again. If the UI reports a started or indeterminate write:
 
 1. Do **not** press Flash again.
 2. Preserve every `firmware-update-journal-v*.json`, `firmware-write.lock`, `firmware-journal.lock`, `preflight-*.json`, `result-*.json`, `completed-ledger-v*/`, and any `legacy-migration-v1.json` or `legacy-migration-conflict-v1.json` evidence.
@@ -135,8 +135,19 @@ The inspector refuses symbolic links in the requested path or evidence tree, has
 
 The application intentionally provides no “clear lock and retry” button.
 
+## Part of the AtomOS suite
+
+- [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer): AI-native spectrum analyzer application
+- [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): Bayesian RF waveform classification
+- [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): reverse-engineered, LLVM cross-built TinySA firmware
+- [Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher): this repository
+- [Atom-NeptuneSDR-Twin](https://github.com/PhysicistJohn/Atom-NeptuneSDR-Twin): Renode digital twin of an SDR
+- [Atom-SignalLab](https://github.com/PhysicistJohn/Atom-SignalLab): 3GPP and reference signal generation
+- [Atom-TinySA-Twin](https://github.com/PhysicistJohn/Atom-TinySA-Twin): Renode digital twin booting real ZS407 firmware
+- [Atom-Website](https://github.com/PhysicistJohn/Atom-Website): product website
+
 ## Code map
 
-The implementation is split into independently reviewable layers: shared runtime and persisted schemas in `src/core/contracts.ts`, renderer/main operations in `src/main/ipc-contract.ts`, the sandbox capability in `src/main/preload.ts`, the device protocol and transport under `src/device`, DFU tooling in `src/dfu/dfu-util.ts`, and update orchestration in `src/core/firmware-updater.ts`. The safety chain — write-started journaling, RF-off-before-flash, exact USB admission, and pinned sha verification — is pinned by the tests under `tests/`.
+The implementation is split into independently reviewable layers: shared runtime and persisted schemas in `src/core/contracts.ts`, renderer/main operations in `src/main/ipc-contract.ts`, the sandbox capability in `src/main/preload.ts`, the device protocol and transport under `src/device`, DFU tooling in `src/dfu/dfu-util.ts`, and update orchestration in `src/core/firmware-updater.ts`. The safety chain (write-started journaling, RF-off-before-flash, exact USB admission, and pinned SHA verification) is pinned by the tests under `tests/`.
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the review checklist and mandatory manual verification rules. Security issues should follow [`SECURITY.md`](./SECURITY.md).
