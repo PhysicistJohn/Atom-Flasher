@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/brand/logo.jpg" alt="AtomOS Flasher" width="520"></p>
+
 # Flasher
 
 Flasher is a focused, standalone desktop updater for the physical **tinySA Ultra / Ultra+ ZS407**. It has no runtime or build-time dependency on the TinySA/Atomizer repository.
