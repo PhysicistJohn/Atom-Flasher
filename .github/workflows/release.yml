@@ -46,7 +46,7 @@ jobs:
         run: npm run package:mac
 
       - name: Audit dependencies
-        run: npm audit --audit-level=low
+        run: npm run audit
 
       - name: Write artifact checksums
         run: (cd release && shasum -a 256 *.dmg *.zip > SHA256SUMS)

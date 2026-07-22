@@ -81,6 +81,8 @@ export const TINYSA_DFU_PRODUCT_ID = 'df11' as const;
 export const SCREEN_WIDTH = 480 as const;
 export const SCREEN_HEIGHT = 320 as const;
 export const SCREEN_BYTES = SCREEN_WIDTH * SCREEN_HEIGHT * 2;
+/** tinySA documents 3.9 V as the floor for best Ultra performance. */
+export const MINIMUM_UPDATE_BATTERY_MV = 3_900 as const;
 
 export const isoTimestampSchema = z.string().datetime();
 export const uuidSchema = z.string().uuid();
@@ -258,7 +260,7 @@ export const localCustomFirmwareTargetSchema = z.object({
   hardwareQualification: z.enum(['qualified', 'unqualified']),
   qualificationEvidenceSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   buildProvenance: z.object({
-    sourceRepository: z.literal('PhysicistJohn/TinySA_Firmware'),
+    sourceRepository: z.enum(['PhysicistJohn/TinySA_Firmware', 'PhysicistJohn/Atom-Firmware']),
     chibiosCommit: z.string().regex(/^[a-f0-9]{40}$/),
     sourceDateEpoch: z.number().int().nonnegative(),
     toolchain: z.string().trim().min(1).max(200),
@@ -400,7 +402,7 @@ export type DfuDeviceState = z.infer<typeof dfuDeviceStateSchema>;
 export const firmwarePreparationSchema = z.object({
   id: uuidSchema,
   preparedAt: isoTimestampSchema,
-  batteryMillivolts: z.number().int().min(4_000),
+  batteryMillivolts: z.number().int().min(MINIMUM_UPDATE_BATTERY_MV),
   deviceId: z.number().int().nonnegative(),
   screenSha256: z.string().regex(/^[a-f0-9]{64}$/),
   selfTestPassed: z.literal(true),

@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 const TARGET_PRODUCT = 'tinySA Ultra / Ultra+' as const;
-const SOURCE_REPOSITORY = 'PhysicistJohn/TinySA_Firmware' as const;
+const SOURCE_REPOSITORIES = ['PhysicistJohn/TinySA_Firmware', 'PhysicistJohn/Atom-Firmware'] as const;
 const MAX_FIRMWARE_BYTES = 245_760;
+const MINIMUM_UPDATE_BATTERY_MV = 3_900;
 
 const targetCommonShape = {
   targetId: z.string().min(1).max(160).regex(/^[a-z0-9][a-z0-9._-]+$/),
@@ -38,7 +39,7 @@ export const localCustomFirmwareTargetV2Schema = z.object({
   hardwareQualification: z.enum(['qualified', 'unqualified']),
   qualificationEvidenceSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   buildProvenance: z.object({
-    sourceRepository: z.literal(SOURCE_REPOSITORY),
+    sourceRepository: z.enum(SOURCE_REPOSITORIES),
     chibiosCommit: z.string().regex(/^[a-f0-9]{40}$/),
     sourceDateEpoch: z.number().int().nonnegative(),
     toolchain: z.string().trim().min(1).max(200),
@@ -118,7 +119,7 @@ const deviceIdentityV2Schema = z.object({
 });
 
 const telemetryV2Schema = z.object({
-  batteryMillivolts: z.number().int().min(4_000),
+  batteryMillivolts: z.number().int().min(MINIMUM_UPDATE_BATTERY_MV),
   deviceId: z.number().int().nonnegative(),
   capturedAt: z.string().datetime(),
 }).strict();
@@ -134,7 +135,7 @@ const usbContinuityV2Schema = z.object({
 const preparationV2Schema = z.object({
   id: z.string().uuid(),
   preparedAt: z.string().datetime(),
-  batteryMillivolts: z.number().int().min(4_000),
+  batteryMillivolts: z.number().int().min(MINIMUM_UPDATE_BATTERY_MV),
   deviceId: z.number().int().nonnegative(),
   screenSha256: z.string().regex(/^[a-f0-9]{64}$/),
   selfTestPassed: z.literal(true),

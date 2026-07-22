@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
   OEM_ZS407_FIRMWARE_TARGET,
+  MINIMUM_UPDATE_BATTERY_MV,
   TINYSA_USB_PRODUCT_ID,
   TINYSA_USB_VENDOR_ID,
   deviceDiagnosticsSchema,
@@ -56,8 +57,6 @@ import {
   type FirmwareTransactionStoreTestHooks,
   type FirmwareWriteSession,
 } from './persistence/firmware-transaction-store.js';
-
-const MINIMUM_UPDATE_BATTERY_MV = 4_000;
 
 export interface FirmwareUpdateSnapshotPort {
   snapshot(): DeviceSnapshot;

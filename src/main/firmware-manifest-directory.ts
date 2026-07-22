@@ -9,18 +9,19 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 export async function initialFirmwareManifestDirectory(
   currentWorkingDirectory: string,
 ): Promise<string | undefined> {
-  const candidate = resolve(currentWorkingDirectory, '..', 'TinySA_Firmware');
-  try {
-    const metadata = await lstat(candidate);
-    if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
-      return undefined;
+  for (const repositoryName of ['Atom-Firmware', 'TinySA_Firmware']) {
+    const candidate = resolve(currentWorkingDirectory, '..', repositoryName);
+    try {
+      const metadata = await lstat(candidate);
+      if (!metadata.isSymbolicLink() && metadata.isDirectory()) {
+        return await realpath(candidate);
+      }
+    } catch {
+      // Continue to the historical sibling name. Picker convenience must not
+      // become an updater startup dependency.
     }
-    return await realpath(candidate);
-  } catch {
-    // A picker convenience must never become a firmware-updater startup
-    // dependency. Native selection and manifest admission remain available.
-    return undefined;
   }
+  return undefined;
 }
 
 /** Remembers only a directory whose selected manifest completed admission. */

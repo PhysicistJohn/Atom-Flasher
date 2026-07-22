@@ -4,6 +4,10 @@
 
 AtomOS Flasher is a standalone, fail-closed desktop firmware updater for the physical **tinySA Ultra / Ultra+ ZS407**. It is part of the AtomOS suite but has no runtime or build-time dependency on the [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer) application repository.
 
+The `tinysa-*` schema filenames, device IDs, and v1 source identifier are stable
+compatibility names. Current product, repository, source, and v2 schema IDs use
+AtomOS, `Atom-Flasher`, and `Atom-Firmware`.
+
 The application has one pinned OEM release. It is the only network-acquired target and the default restore/update target:
 
 | Field | Pinned value |
@@ -18,7 +22,7 @@ The application has one pinned OEM release. It is the only network-acquired targ
 
 The OEM host is HTTP. Transport is not treated as authenticity: the streamed response is bounded to the pinned byte length and the image is retained only after its exact SHA-256 matches.
 
-The operator may instead select a manifested local custom build from [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware). Build manifests still declare that repository's historical identifier, `PhysicistJohn/TinySA_Firmware`, and in a sibling development checkout the native picker starts in `../TinySA_Firmware`; after a manifest passes admission, later selections in that app session start in its verified directory. Cancelled or rejected selections never replace that directory. Selection uses a native main-process file picker; renderer IPC accepts no path. The adjacent raw `.bin` and strict v1 build manifest must agree on the ZS407/STM32F303 target, `0x08000000` load address, 8 KiB–240 KiB size, SHA-256, vector table, embedded version/revision, clean source and ChibiOS commits, reproducible-build assertion, qualification declarations, and operator-only flash policy. The app copies both files into owner-only, content-addressed storage and reopens and re-verifies them before use.
+The operator may instead select a manifested local custom build from [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware). Current v2 manifests declare `PhysicistJohn/Atom-Firmware`; historical v1 manifests with `PhysicistJohn/TinySA_Firmware` remain readable as an exact compatibility contract. In a sibling development checkout the native picker starts in `../Atom-Firmware`, with `../TinySA_Firmware` retained only as a compatibility fallback; after a manifest passes admission, later selections in that app session start in its verified directory. Cancelled or rejected selections never replace that directory. Selection uses a native main-process file picker; renderer IPC accepts no path. The adjacent raw `.bin` and its strict manifest must agree on the ZS407/STM32F303 target, `0x08000000` load address, 8 KiB–240 KiB size, SHA-256, vector table, embedded version/revision, clean source and ChibiOS commits, reproducible-build assertion, qualification declarations, and operator-only flash policy. The app copies both files into owner-only, content-addressed storage and reopens and re-verifies them before use.
 
 `qualified-on-zs407` is a manifest declaration that requires an immutable qualification-evidence SHA-256; the app does not independently reproduce that external evidence. A local build is never promoted to OEM provenance. The device-side identity remains `custom-unqualified`, while the journal separately retains the manifest’s build-qualification declaration and exact target identity. Matching custom version/revision text on a connected device does not prove installed bytes, so it never creates an “already current” shortcut; only this app’s just-completed durable write evidence can establish that exact result.
 
@@ -27,7 +31,7 @@ The operator may instead select a manifested local custom build from [Atom-Firmw
 AtomOS Flasher fails closed at every write boundary:
 
 - Physical admission requires exact USB CDC identity `0483:5740`, a ZS407 hardware response, a source revision, the required command surface, and `output off` before and after identification.
-- Preflight records battery voltage, device ID, USB path/serial evidence, the exact LCD capture hash, image hash, and the local human’s self-test/RF-disconnection attestations.
+- Preflight requires at least 3.9 V battery voltage and records that reading, device ID, USB path/serial evidence, the exact LCD capture hash, image hash, and the local human’s self-test/RF-disconnection attestations.
 - Only `dfu-util 0.11` is accepted.
 - DFU admission requires exactly one `0483:df11` device, one alt-0 `@Internal Flash` target, a nonempty path/devnum/serial, base address `0x08000000`, and capacity for the exact selected image.
 - The exact DFU fingerprint is journaled, enumerated again immediately before write, and supplied to `dfu-util` with path and serial selectors.
@@ -63,19 +67,17 @@ A single legacy journal and its safety artifacts, including completed-ledger his
 ## Prerequisites
 
 - macOS 12 or later (the initial packaged target)
-- Node.js `22.23.1` (supported range `>=22.23.1 <23`; pinned in `.node-version`)
+- Node.js `22.23.1` (pinned in `.node-version`)
 - npm `10.9.8`
 - `dfu-util 0.11` for a physical update (`brew install dfu-util`)
 
 ## Install
 
-Built releases are published separately at [PhysicistJohn/Atom-Flasher-releases](https://github.com/PhysicistJohn/Atom-Flasher-releases). Full install instructions, signing status, and checksum verification live in that repo's README; this section is a pointer, not a duplicate, so it can't drift out of sync.
-
-```sh
-brew install --cask physicistjohn/atom-flasher/atom-flasher
-```
-
-AtomOS Flasher currently ships ad-hoc signed, not notarized; see the releases repo for what that means and how to verify a download.
+No prebuilt AtomOS Flasher release is currently published. The separate
+[release repository](https://github.com/PhysicistJohn/Atom-Flasher-releases)
+is a reserved distribution location, not an install source until it contains a
+release with checksums and provenance. Use the development workflow below in
+the meantime; do not install an unverified binary from another source.
 
 ## Development
 
@@ -93,7 +95,7 @@ Checks and production build:
 
 ```sh
 npm run check
-npm audit --audit-level=low
+npm run audit
 ```
 
 The repository CI runs these commands from the lockfile on pinned Node.js and npm versions. `check` includes lint, typechecking, tests, and a clean production build. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the review checklist and physical-hardware qualification.
@@ -137,14 +139,14 @@ The application intentionally provides no “clear lock and retry” button.
 
 ## Part of the AtomOS suite
 
-- [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer): AI-native spectrum analyzer application
-- [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): Bayesian RF waveform classification
-- [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): reverse-engineered, LLVM cross-built TinySA firmware
-- [Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher): this repository
-- [Atom-NeptuneSDR-Twin](https://github.com/PhysicistJohn/Atom-NeptuneSDR-Twin): Renode digital twin of an SDR
-- [Atom-SignalLab](https://github.com/PhysicistJohn/Atom-SignalLab): 3GPP and reference signal generation
-- [Atom-TinySA-Twin](https://github.com/PhysicistJohn/Atom-TinySA-Twin): Renode digital twin booting real ZS407 firmware
-- [Atom-Website](https://github.com/PhysicistJohn/Atom-Website): product website
+- [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer): AI-native spectrum analyzer application.
+- [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): deployed local embedding classifier plus retained Bayesian RF research pipeline.
+- [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): reproducibly built tinySA firmware research and modernization.
+- [Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher): fail-closed firmware flasher.
+- [Atom-NeptuneSDR-Twin](https://github.com/PhysicistJohn/Atom-NeptuneSDR-Twin): QEMU-backed firmware-executing digital twin of the NeptuneSDR/HAMGEEK P210.
+- [Atom-SignalLab](https://github.com/PhysicistJohn/Atom-SignalLab): 3GPP and reference signal generation.
+- [Atom-TinySA-Twin](https://github.com/PhysicistJohn/Atom-TinySA-Twin): Renode digital twin booting real ZS407 firmware.
+- [Atom-Website](https://github.com/PhysicistJohn/Atom-Website): product site.
 
 ## Code map
 

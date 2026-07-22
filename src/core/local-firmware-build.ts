@@ -14,7 +14,8 @@ import {
 } from './firmware-artifact.js';
 import { ensurePrivateFirmwareDirectory, syncDirectory } from './persistence/durable-files.js';
 
-export const MANIFEST_SCHEMA_ID = 'https://physicistjohn.github.io/tinysa-flasher/contracts/schemas/tinysa-firmware-build-manifest-v1.schema.json';
+export const LEGACY_MANIFEST_SCHEMA_ID = 'https://physicistjohn.github.io/tinysa-flasher/contracts/schemas/tinysa-firmware-build-manifest-v1.schema.json';
+export const MANIFEST_SCHEMA_ID = 'https://physicistjohn.github.io/atom-flasher/contracts/schemas/tinysa-firmware-build-manifest-v2.schema.json';
 const MAXIMUM_MANIFEST_BYTES = 64 * 1024;
 const MINIMUM_FIRMWARE_BYTES = 8 * 1024;
 export const ZS407_MAXIMUM_WRITE_BYTES = 240 * 1024;
@@ -22,8 +23,8 @@ const ZS407_LOAD_ADDRESS = 0x0800_0000;
 
 const lowercaseHex32Schema = z.string().regex(/^0x[0-9a-f]{8}$/);
 export const localFirmwareBuildManifestSchema = z.object({
-  $schema: z.literal(MANIFEST_SCHEMA_ID),
-  manifestVersion: z.literal(1),
+  $schema: z.union([z.literal(LEGACY_MANIFEST_SCHEMA_ID), z.literal(MANIFEST_SCHEMA_ID)]),
+  manifestVersion: z.union([z.literal(1), z.literal(2)]),
   artifact: z.object({
     filename: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*\.bin$/).max(160),
     format: z.literal('raw-stm32-binary'),
@@ -40,7 +41,7 @@ export const localFirmwareBuildManifestSchema = z.object({
     mcu: z.literal('STM32F303'),
     version: z.string().regex(/^tinySA4_[A-Za-z0-9.+_-]{1,96}-g[a-f0-9]{7,40}$/).max(128),
     reportedRevision: z.string().regex(/^[a-f0-9]{7,40}$/),
-    sourceRepository: z.literal('PhysicistJohn/TinySA_Firmware'),
+    sourceRepository: z.enum(['PhysicistJohn/TinySA_Firmware', 'PhysicistJohn/Atom-Firmware']),
     sourceCommit: z.string().regex(/^[a-f0-9]{40}$/),
     sourceTree: z.literal('tracked-clean'),
     chibiosCommit: z.string().regex(/^[a-f0-9]{40}$/),
@@ -60,6 +61,15 @@ export const localFirmwareBuildManifestSchema = z.object({
   }).strict(),
 }).strict().superRefine((manifest, context) => {
   const issue = (path: (string | number)[], message: string) => context.addIssue({ code: 'custom', path, message });
+  const expectedIdentity = manifest.manifestVersion === 1
+    ? { schema: LEGACY_MANIFEST_SCHEMA_ID, repository: 'PhysicistJohn/TinySA_Firmware' }
+    : { schema: MANIFEST_SCHEMA_ID, repository: 'PhysicistJohn/Atom-Firmware' };
+  if (manifest.$schema !== expectedIdentity.schema) {
+    issue(['$schema'], `Manifest v${manifest.manifestVersion} must use its exact schema ID`);
+  }
+  if (manifest.firmware.sourceRepository !== expectedIdentity.repository) {
+    issue(['firmware', 'sourceRepository'], `Manifest v${manifest.manifestVersion} must use its exact source repository`);
+  }
   const versionRevision = manifest.firmware.version.match(/-g([a-f0-9]{7,40})$/)?.[1];
   if (versionRevision !== manifest.firmware.reportedRevision) {
     issue(['firmware', 'reportedRevision'], 'Reported revision must exactly match the version suffix');

@@ -87,7 +87,7 @@ export function App() {
       </div>
       {update.target.kind === 'local-custom' && <div className="danger-note"><strong>LOCAL CUSTOM FIRMWARE</strong><span>{update.target.hardwareQualification === 'qualified' ? 'The build manifest declares hardware qualification.' : 'The build manifest declares this build hardware-unqualified.'} This is never treated as OEM provenance, and matching device version/revision text does not prove the installed bytes. The manifest and binary are copied into content-addressed app storage and reverified before any write.</span></div>}
       <div className="target-actions">
-        <button className="secondary strong" disabled={Boolean(busy) || !snapshot.allowedActions.selectLocalFirmwareTarget} onClick={() => void run('select-custom', () => window.tinySaFlasher.selectLocalFirmwareTarget())}>{busy === 'select-custom' ? 'Verifying manifest…' : 'Select TinySA_Firmware build…'}</button>
+        <button className="secondary strong" disabled={Boolean(busy) || !snapshot.allowedActions.selectLocalFirmwareTarget} onClick={() => void run('select-custom', () => window.tinySaFlasher.selectLocalFirmwareTarget())}>{busy === 'select-custom' ? 'Verifying manifest…' : 'Select Atom-Firmware build…'}</button>
         {update.target.kind === 'local-custom' && <button className="secondary" disabled={Boolean(busy) || !snapshot.allowedActions.selectOemTarget} onClick={() => void run('select-oem', () => window.tinySaFlasher.selectOemTarget())}>{busy === 'select-oem' ? 'Selecting…' : 'Use pinned OEM target'}</button>}
       </div>
       <p className="target-boundary-note">Selection uses a native file picker. No filesystem path is accepted from or returned to the renderer.</p>
@@ -187,7 +187,7 @@ export function App() {
 
       {update.phase === 'up-to-date' && <Stage title="Selected firmware is already installed" icon="✓"><p>The connected ZS407 already reports the exact pinned OEM release. No write is offered. A matching custom version/revision label alone never proves the installed bytes.</p><Facts update={update}/></Stage>}
 
-      {update.phase === 'custom-firmware' && <Stage title="Legacy custom firmware observation" icon="!"><p>{update.warning}</p><p>Select the pinned OEM target to restore OEM firmware, or select an exact manifested TinySA_Firmware build. No provenance is inferred from the device label.</p></Stage>}
+      {update.phase === 'custom-firmware' && <Stage title="Legacy custom firmware observation" icon="!"><p>{update.warning}</p><p>Select the pinned OEM target to restore OEM firmware, or select an exact manifested Atom-Firmware build. No provenance is inferred from the device label.</p></Stage>}
 
       {update.phase === 'failed' && <Stage title={update.writeDisposition === 'not-started' ? 'Update stopped safely' : 'Manual inspection required'} icon="!" danger>
         <p>{update.error}</p>

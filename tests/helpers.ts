@@ -142,11 +142,14 @@ export function fakeVerifiedArtifact(bytes: Uint8Array) {
 export class FakeFirmwareDevice implements FirmwareUpdateDevice {
   #snapshot: DeviceSnapshot;
   constructor(private readonly options: {
+    batteryMillivolts?: number;
     disconnected?: boolean;
     postFlashCustomTarget?: LocalCustomFirmwareTarget;
     postFlashDeviceId?: number;
   } = {}) {
-    this.#snapshot = options.disconnected ? { connection: 'disconnected' } : outdatedSnapshot();
+    this.#snapshot = options.disconnected
+      ? { connection: 'disconnected' }
+      : outdatedSnapshot(options.batteryMillivolts);
   }
   snapshot(): DeviceSnapshot { return structuredClone(this.#snapshot); }
   async readDiagnostics(): Promise<DeviceDiagnostics> {
@@ -156,7 +159,11 @@ export class FakeFirmwareDevice implements FirmwareUpdateDevice {
       firmwareVersionResponse: identity.firmwareVersion,
       infoLines: ['tinySA ULTRA+ ZS407'],
       commands: ['version', 'info', 'help', 'mode', 'output', 'vbat', 'deviceid', 'capture'],
-      telemetry: { batteryMillivolts: 4211, deviceId: 407, capturedAt: new Date().toISOString() },
+      telemetry: {
+        batteryMillivolts: this.options.batteryMillivolts ?? 4211,
+        deviceId: 407,
+        capturedAt: new Date().toISOString(),
+      },
       capturedAt: new Date().toISOString(),
     };
   }
@@ -173,7 +180,7 @@ export class FakeFirmwareDevice implements FirmwareUpdateDevice {
   }
 }
 
-function outdatedSnapshot(): DeviceSnapshot {
+function outdatedSnapshot(batteryMillivolts = 4211): DeviceSnapshot {
   const capturedAt = new Date().toISOString();
   return {
     connection: 'ready',
@@ -182,7 +189,7 @@ function outdatedSnapshot(): DeviceSnapshot {
       firmwareReportedRevision: 'c5dd31f', firmwareSourceCommit: ZS407_SHIPPED_FIRMWARE_SOURCE_COMMIT, firmwareQualification: 'supported-oem',
       port: cdcCandidate, usbIdentityVerified: true,
     },
-    telemetry: { batteryMillivolts: 4211, deviceId: 407, capturedAt },
+    telemetry: { batteryMillivolts, deviceId: 407, capturedAt },
     connectedAt: capturedAt,
   };
 }
